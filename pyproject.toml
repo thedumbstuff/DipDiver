@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dipdiver"
+version = "0.0.0"
+description = "Agentic AI trading stack — integration of RD-Agent, Qlib, Lean, TradingAgents topology, and live-trade-bench validation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "DipDiver contributors" }]
+keywords = ["trading", "quant", "agentic", "llm", "qlib", "lean", "rd-agent"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    # Brain / quant — pinned in milestone 1
+    # "pyqlib",
+    # Execution — pinned in milestone 3 (Lean python wrapper)
+    # Committee — pinned in milestone 5
+    # Kept empty during scaffolding to avoid stale pins.
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5",
+    "black>=24.0",
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[project.urls]
+Repository = "https://github.com/thedumbstuff/DipDiver"
+Documentation = "https://github.com/thedumbstuff/DipDiver/tree/main/docs"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dipdiver*"]
+exclude = ["tests*", "notebooks*"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle / pyflakes
+    "I",             # isort
+    "B",             # bugbear
+    "UP",            # pyupgrade
+    "SIM",           # simplify
+    "C4",            # comprehensions
+    "RUF",           # ruff-specific
+]
+ignore = [
+    "E501",          # line length handled by black
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+files = ["dipdiver"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: requires external services (broker, LLM, data)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["dipdiver"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

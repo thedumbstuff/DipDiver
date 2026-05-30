@@ -1,0 +1,74 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.python-version
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Type checkers / linters / test caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+credentials*.json
+
+# Local data / model caches — never commit
+data/
+.qlib/
+qlib_data/
+mlruns/
+*.parquet
+*.feather
+*.h5
+*.pkl
+*.pickle
+*.joblib
+
+# Lean artefacts
+Lean/
+storage/
+results/
+
+# Scoreboard rows (live data) — published from CI, not from local
+scoreboard/
+*.jsonl
+!tests/**/*.jsonl
+
+# Logs
+*.log
+logs/
