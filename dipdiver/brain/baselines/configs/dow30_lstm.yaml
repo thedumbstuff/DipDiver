@@ -1,0 +1,39 @@
+# M1 baseline: DOW 30 × LSTM
+# Aligned with Qlib's reference LSTM recipe in qlib.contrib.model.pytorch_lstm.
+
+name: dow30_lstm
+universe: dow30
+model: lstm
+region: us
+qlib_provider_uri: data/qlib/us_data
+
+train_start: "2014-01-01"
+train_end:   "2022-12-31"
+valid_start: "2023-01-01"
+valid_end:   "2023-12-31"
+test_start:  "2024-01-01"
+test_end:    "2025-12-31"
+
+benchmark: "DJI"
+seed: 42
+
+model_params:
+  d_feat: 158        # Alpha158 default
+  hidden_size: 64
+  num_layers: 2
+  dropout: 0.0
+  n_epochs: 200
+  lr: 0.001
+  early_stop: 20
+  batch_size: 800
+  metric: loss
+  loss: mse
+  GPU: 0    # -1 for CPU; 0 for first CUDA device
+
+backtest_params:
+  topk: 10
+  n_drop: 3
+  # US retail (Alpaca-style zero-commission + bid-ask + SEC fees on sell):
+  open_cost: 0.0001  # 1 bp
+  close_cost: 0.0002 # 2 bps (incl. SEC fee)
+  min_cost: 1

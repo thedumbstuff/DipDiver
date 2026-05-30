@@ -1,0 +1,38 @@
+# M1 baseline: DOW 30 × LightGBM
+# Aligned with Qlib's reference LightGBM recipe.
+# Train window deliberately ends well before test_start (time-fence per docs/VALIDATION.md).
+
+name: dow30_lightgbm
+universe: dow30
+model: lightgbm
+region: us
+qlib_provider_uri: data/qlib/us_data
+
+train_start: "2014-01-01"
+train_end:   "2022-12-31"
+valid_start: "2023-01-01"
+valid_end:   "2023-12-31"
+test_start:  "2024-01-01"
+test_end:    "2025-12-31"
+
+benchmark: "DJI"
+seed: 42
+
+model_params:
+  loss: mse
+  colsample_bytree: 0.8879
+  learning_rate: 0.0421
+  subsample: 0.8789
+  lambda_l1: 205.6999
+  lambda_l2: 580.9768
+  max_depth: 8
+  num_leaves: 210
+  num_threads: 20
+
+backtest_params:
+  topk: 10           # hold top-10 ranked names
+  n_drop: 3          # rotate out 3 per rebalance
+  # US retail (Alpaca-style zero-commission + bid-ask + SEC fees on sell):
+  open_cost: 0.0001  # 1 bp
+  close_cost: 0.0002 # 2 bps (incl. SEC fee)
+  min_cost: 1

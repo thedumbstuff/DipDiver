@@ -36,6 +36,18 @@ dev = [
     "mypy>=1.10",
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "pyyaml>=6",
+    "types-PyYAML",
+]
+brain = [
+    # pyqlib 0.9.7 ships wheels for Python 3.8-3.12 only. Use a 3.12 venv for brain work.
+    "pyqlib>=0.9.7; python_version < '3.13'",
+    "pyyaml>=6",
+    "lightgbm>=4",
+    "torch>=2.2",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "yfinance>=0.2.40",
 ]
 
 [project.urls]

@@ -58,6 +58,8 @@ mypy                  # type check
 pytest                # smoke tests
 ```
 
+> **For M1 brain work (`pip install -e ".[brain]"`), use Python 3.12** — Qlib's wheels don't yet cover 3.13. The `dev` extra works on 3.11–3.13.
+
 CI runs the same four checks on push/PR (`.github/workflows/ci.yml`) plus a gitleaks secret scan (`.github/workflows/secret-scan.yml`).
 
 Next runnable milestone is M1 (Qlib baseline) — see [`docs/ROADMAP.md`](docs/ROADMAP.md).

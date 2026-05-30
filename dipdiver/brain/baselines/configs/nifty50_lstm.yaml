@@ -1,0 +1,40 @@
+# M1 baseline: NIFTY 50 × LSTM
+
+name: nifty50_lstm
+universe: nifty50
+model: lstm
+region: in
+qlib_provider_uri: data/qlib/in_data
+
+train_start: "2014-01-01"
+train_end:   "2022-12-31"
+valid_start: "2023-01-01"
+valid_end:   "2023-12-31"
+test_start:  "2024-01-01"
+test_end:    "2025-12-31"
+
+benchmark: "NSEI"
+seed: 42
+
+model_params:
+  d_feat: 158
+  hidden_size: 64
+  num_layers: 2
+  dropout: 0.0
+  n_epochs: 200
+  lr: 0.001
+  early_stop: 20
+  batch_size: 800
+  metric: loss
+  loss: mse
+  GPU: 0    # -1 for CPU; 0 for first CUDA device
+
+backtest_params:
+  topk: 15
+  n_drop: 5
+  # NSE retail delivery via Zerodha-style discount broker (0% brokerage on delivery):
+  #   buy:  stamp duty 0.015% + GST/exchange/SEBI = ~3 bps
+  #   sell: STT 0.10% + exchange + GST + DP = ~11 bps
+  open_cost: 0.0003  # 3 bps
+  close_cost: 0.0011 # 11 bps
+  min_cost: 1

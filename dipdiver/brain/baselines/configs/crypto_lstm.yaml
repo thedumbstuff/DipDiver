@@ -1,0 +1,37 @@
+# M1 baseline: small crypto basket × LSTM
+
+name: crypto_lstm
+universe: crypto
+model: lstm
+region: crypto
+qlib_provider_uri: data/qlib/crypto_data
+
+train_start: "2019-01-01"
+train_end:   "2022-12-31"
+valid_start: "2023-01-01"
+valid_end:   "2023-12-31"
+test_start:  "2024-01-01"
+test_end:    "2025-12-31"
+
+benchmark: "BTC-USD"
+seed: 42
+
+model_params:
+  d_feat: 158
+  hidden_size: 64
+  num_layers: 2
+  dropout: 0.0
+  n_epochs: 200
+  lr: 0.001
+  early_stop: 20
+  batch_size: 800
+  metric: loss
+  loss: mse
+  GPU: 0    # -1 for CPU; 0 for first CUDA device
+
+backtest_params:
+  topk: 2
+  n_drop: 1
+  open_cost: 0.001
+  close_cost: 0.001
+  min_cost: 0

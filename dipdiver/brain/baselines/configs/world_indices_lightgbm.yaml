@@ -1,0 +1,37 @@
+# M1 baseline: 15 world country indices × LightGBM
+
+name: world_indices_lightgbm
+universe: world_indices
+model: lightgbm
+region: us            # Qlib region — use US calendar (most overlapping)
+qlib_provider_uri: data/qlib/world_data
+
+train_start: "2014-01-01"
+train_end:   "2022-12-31"
+valid_start: "2023-01-01"
+valid_end:   "2023-12-31"
+test_start:  "2024-01-01"
+test_end:    "2025-12-31"
+
+benchmark: "GSPC"     # in-store symbol (^GSPC fetched, stored as gspc)
+seed: 42
+
+model_params:
+  loss: mse
+  colsample_bytree: 0.8879
+  learning_rate: 0.0421
+  subsample: 0.8789
+  lambda_l1: 205.6999
+  lambda_l2: 580.9768
+  max_depth: 8
+  num_leaves: 210
+  num_threads: 20
+
+backtest_params:
+  topk: 5             # ~1/3 of universe, matches DOW ratio
+  n_drop: 1           # matches Qlib's reference turnover (~10%)
+  # Index futures-style costs (CME / Eurex micro/mini contracts for retail).
+  # Spread + commissions + tax average ~3 bps round-trip for major-index futures.
+  open_cost: 0.00015  # 1.5 bps
+  close_cost: 0.00015 # 1.5 bps
+  min_cost: 1
