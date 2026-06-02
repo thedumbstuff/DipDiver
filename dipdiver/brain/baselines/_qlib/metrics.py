@@ -42,7 +42,15 @@ def extract_metrics(recorder: Any, benchmark_label: str = "bench") -> dict[str, 
     # Approx turnover: sum of absolute weight changes per day, annualised, per-side.
     turnover = float(report.get("turnover", pd.Series(0.0, index=net.index)).mean() * ann)
 
-    n_trades = int(report.get("trade_count", pd.Series(0, index=net.index)).sum())
+    # qlib's report has no "trade_count" column. As a meaningful proxy, count
+    # the number of days with any non-trivial portfolio turnover — each such
+    # day involves at least one buy/sell pair under TopkDropoutStrategy.
+    turnover_series = (
+        report.get("turnover", pd.Series(0.0, index=ret.index))
+        .reindex(ret.index)
+        .fillna(0.0)
+    )
+    n_trades = int((turnover_series > 1e-8).sum())
 
     bench_ann_return = float(bench.mean() * ann)
 

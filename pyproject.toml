@@ -49,6 +49,12 @@ brain = [
     "pandas>=2.2",
     "yfinance>=0.2.40",
 ]
+m2 = [
+    # m2-lite: our LLM factor-proposer. OpenAI SDK works for DeepSeek too
+    # via base_url override. Pydantic validates LLM output before it touches Qlib.
+    "openai>=1.40",
+    "pydantic>=2.5",
+]
 
 [project.urls]
 Repository = "https://github.com/thedumbstuff/DipDiver"

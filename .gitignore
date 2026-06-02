@@ -42,10 +42,14 @@ coverage.xml
 .env
 .env.*
 !.env.example
+!.env.m2.example
 secrets/
 *.key
 *.pem
 credentials*.json
+
+# M2-lite artefacts
+logs/m2_lite/
 
 # Local data / model caches — never commit
 data/
