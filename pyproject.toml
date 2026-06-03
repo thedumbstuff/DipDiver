@@ -55,6 +55,14 @@ m2 = [
     "openai>=1.40",
     "pydantic>=2.5",
 ]
+m3 = [
+    # Lean execution chassis for backtesting. The CLI is host-side; the engine
+    # runs in Docker. Docker Desktop must be installed separately.
+    "lean>=1.0",
+    # Live paper-trading via Alpaca, since Lean's live mode requires a paid
+    # QuantConnect subscription. See docs/milestones/M3_lean.md step 6.
+    "alpaca-py>=0.30",
+]
 
 [project.urls]
 Repository = "https://github.com/thedumbstuff/DipDiver"

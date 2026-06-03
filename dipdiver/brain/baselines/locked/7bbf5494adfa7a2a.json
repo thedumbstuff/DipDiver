@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.18427705919714654,
+  "annualised_volatility": 0.16373872869067582,
+  "benchmark_annualised_return": 0.13217715919017792,
+  "config_hash": "7bbf5494adfa7a2a",
+  "config_name": "dow30_lstm",
+  "excess_return": 0.052099900006968625,
+  "git_sha": "f44a332",
+  "hit_rate": 0.5557768924302788,
+  "max_drawdown": -0.20831159641495078,
+  "model": "lstm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:36:37+00:00",
+  "sharpe": 1.1254335530189095,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 134.74349969230525,
+  "universe": "dow30"
+}
