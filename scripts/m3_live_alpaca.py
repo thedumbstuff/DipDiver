@@ -101,6 +101,7 @@ def run_once(
     dry_run: bool,
     force_off_hours: bool,
     with_committee: bool = False,
+    config_name: str | None = None,
 ) -> int:
     from dipdiver.adapters.alpaca.client import AlpacaPaperClient
 
@@ -160,6 +161,7 @@ def run_once(
         run_record = _build_record(
             signal_date, account, current_holdings, target, adds, removes,
             orders=[], dry_run=dry_run, committee_decisions=committee_decisions,
+            m1=m1, config_name=config_name, market_open=market_open,
         )
         _write_record(output_dir, run_record)
         return 0
@@ -203,6 +205,7 @@ def run_once(
     run_record = _build_record(
         signal_date, account, current_holdings, target, adds, removes,
         orders=orders, dry_run=dry_run, committee_decisions=committee_decisions,
+        m1=m1, config_name=config_name, market_open=market_open,
     )
     _write_record(output_dir, run_record)
     return 0
@@ -272,11 +275,18 @@ def _build_record(
     orders: list[dict],
     dry_run: bool,
     committee_decisions: list[dict] | None = None,
+    m1: BaselineConfig | None = None,
+    config_name: str | None = None,
+    market_open: bool | None = None,
 ) -> dict:
     return {
         "timestamp_utc": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "dry_run": dry_run,
         "signal_date_used": signal_date,
+        "config_name": config_name,
+        "config_hash": m1.config_hash if m1 is not None else None,
+        "universe": m1.universe if m1 is not None else None,
+        "market_open": market_open,
         "account": {
             "cash": account.cash,
             "equity": account.equity,
@@ -360,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
             m1=m1, signals_csv=args.signals, output_dir=output_dir,
             dry_run=args.dry_run, force_off_hours=args.force,
             with_committee=args.with_committee,
+            config_name=args.m1_config,
         )
     except Exception as e:  # noqa: BLE001
         log.exception("m3-live failed")
