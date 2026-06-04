@@ -4,6 +4,55 @@ A ten-week build sequence, ordered so that every milestone produces an artefact 
 
 Weeks are nominal. Real elapsed time depends on how hard reproduction goes.
 
+## Pipeline at a glance
+
+Each milestone produces a typed artefact that feeds the next. Status as of 2026-06-04: M0–M3 + M5 done, M2 pivoted from RD-Agent to M2-lite, M4 deferred, M6 not started, M7 gated.
+
+```mermaid
+flowchart TD
+    M0["<b>M0 · Scaffolding</b> ✅<br/>Repo, license, CI, package<br/>layout, contributor rules"]
+    M1["<b>M1 · Qlib baseline</b> ✅<br/>LightGBM/LSTM on Alpha158<br/>per universe, locked results"]
+    M2["<b>M2-lite · LLM factor proposer</b> ✅<br/>DeepSeek proposes Qlib factor<br/>expressions; iterate vs M1 lock<br/><i>(replaces RD-Agent — see ADR-001)</i>"]
+    M3["<b>M3 · Execution</b> ✅<br/>Lean backtest + Alpaca paper<br/>shared TopkDropoutStrategy<br/>CAR 18.85% vs M1 in parity test"]
+    M4["<b>M4 · Broker breadth</b> ⏸<br/>Zerodha + Indian brokers<br/>via Lean IBrokerage<br/><i>(deferred — US paper sufficient for now)</i>"]
+    M5["<b>M5 · Risk-veto committee</b> ✅<br/>4-persona LLM panel<br/>(fundamental, technical, risk, value)<br/>risk has single-vote veto power"]
+    M6["<b>M6 · Forward-eval harness</b> ⏳<br/>Nightly run + JSONL scoreboard<br/>veto-regret tracking<br/>sanity-check strategies"]
+    M7(["<b>M7 · Live capital</b> 🚫<br/>Gated on ≥60d green scoreboard<br/>Sharpe&gt;1, MDD&lt;10%, kill-switch tested"])
+
+    M0 --> M1
+    M1 -->|"locked metrics<br/>+ signals.csv"| M2
+    M1 -->|"signals.csv"| M3
+    M2 -.->|"validated factors<br/>(future merge)"| M1
+    M1 -->|"signal score<br/>+ proposal"| M5
+    M5 -->|"approved buys only<br/>(sells skip committee)"| M3
+    M3 -->|"orders submitted<br/>+ run records"| M6
+    M5 -->|"verdicts<br/>+ rationales"| M6
+    M4 -.->|"more brokers<br/>plug in here"| M3
+    M6 -->|"60d clean<br/>+ all metrics in spec"| M7
+
+    classDef done fill:#1f6f3a,stroke:#0a3,stroke-width:2px,color:#fff
+    classDef defer fill:#665,stroke:#998,stroke-width:1px,color:#fff
+    classDef todo fill:#7a5a1f,stroke:#a80,stroke-width:2px,color:#fff
+    classDef gate fill:#5a1f1f,stroke:#a00,stroke-width:2px,color:#fff
+    class M0,M1,M2,M3,M5 done
+    class M4 defer
+    class M6 todo
+    class M7 gate
+```
+
+Plain-text fallback (when the diagram doesn't render):
+
+| Stage | What it produces (artefact) | What consumes it |
+| ----- | --------------------------- | ---------------- |
+| M0 → M1 | Repo + CI + package skeleton | Everything |
+| M1 → M2-lite | Locked baseline metrics + `signals.csv` per universe | M2-lite challenges the lock; M3 reads signals.csv |
+| M2-lite → M1 | Validated factor expressions (future — currently logged, not merged into M1) | M1 incorporates surviving factors into next training |
+| M1 → M3 | `signals.csv` (date, symbol, score) | M3 Lean backtest + Alpaca live runner |
+| M1/M2 → M5 | `TradeProposal` (per rotation) | M5 committee reviews buys |
+| M5 → M3 | Per-symbol approve/veto + rationale | M3 submits approved buys only |
+| M3 + M5 → M6 | Run records JSON (orders + verdicts) | M6 nightly scoreboard |
+| M6 → M7 | ≥60 days of green forward-eval | M7 capital-deployment gate |
+
 ---
 
 ## Milestone 0 · Repo scaffolding (week 0)
