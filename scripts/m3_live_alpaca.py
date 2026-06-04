@@ -33,6 +33,7 @@ from pathlib import Path
 from dipdiver._paths import repo_root
 from dipdiver.adapters.alpaca import compute_target_holdings
 from dipdiver.brain.baselines.config import BaselineConfig, load_config
+from dipdiver.brain.baselines.universes import get_universe
 
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,7 @@ def run_once(
     output_dir: Path,
     dry_run: bool,
     force_off_hours: bool,
+    with_committee: bool = False,
 ) -> int:
     from dipdiver.adapters.alpaca.client import AlpacaPaperClient
 
@@ -140,11 +142,24 @@ def run_once(
         len(target), sorted(adds), sorted(removes),
     )
 
+    # M5 committee: run each proposed BUY through a multi-persona veto panel.
+    # Sells go through unchanged — committee can't block risk-reducing exits.
+    # That keeps the topk invariant (vetoing a sell + approving a buy would
+    # push us over portfolio size) and matches the "downstream of brain" rule.
+    committee_decisions: list[dict] = []
+    if with_committee and adds:
+        adds, committee_decisions = _run_committee(
+            m1, adds=adds, scored=scored, signal_date=signal_date,
+            current_holdings=current_holdings, equity=account.equity, topk=topk,
+        )
+        log.info("after committee: adds=%s  removes=%s",
+                 sorted(adds), sorted(removes))
+
     if not adds and not removes:
         log.info("portfolio already at target — nothing to do")
         run_record = _build_record(
             signal_date, account, current_holdings, target, adds, removes,
-            orders=[], dry_run=dry_run,
+            orders=[], dry_run=dry_run, committee_decisions=committee_decisions,
         )
         _write_record(output_dir, run_record)
         return 0
@@ -187,10 +202,64 @@ def run_once(
     # 6. Persist run record
     run_record = _build_record(
         signal_date, account, current_holdings, target, adds, removes,
-        orders=orders, dry_run=dry_run,
+        orders=orders, dry_run=dry_run, committee_decisions=committee_decisions,
     )
     _write_record(output_dir, run_record)
     return 0
+
+
+def _run_committee(
+    m1: BaselineConfig,
+    adds: set,
+    scored: list[tuple[str, float]],
+    signal_date: str,
+    current_holdings: set,
+    equity: float,
+    topk: int,
+) -> tuple[set, list[dict]]:
+    """Submit each proposed buy to the M5 committee. Return (approved_adds, decisions)."""
+    from dipdiver.brain.m5 import CommitteeConfig, TradeProposal, review
+
+    universe = get_universe(m1.universe)
+    universe_desc = (
+        f"{len(universe.instruments)} {m1.region.upper()} instruments; "
+        f"top-{topk} / drop-{m1.backtest_params.get('n_drop', 3)} daily rebalance"
+    )
+    score_lookup = dict(scored)
+    target_notional = equity / topk
+    cfg = CommitteeConfig()  # DeepSeek-chat default; override via env if needed
+
+    approved: set = set()
+    decisions: list[dict] = []
+    for symbol in sorted(adds):
+        proposal = TradeProposal(
+            symbol=symbol, direction="buy",
+            universe=m1.universe, benchmark=m1.benchmark,
+            universe_description=universe_desc,
+            signal_score=score_lookup.get(symbol, 0.0),
+            signal_date=signal_date,
+            notional_usd=target_notional,
+            current_holdings=sorted(current_holdings),
+            test_window=f"{m1.test_start} -> {m1.test_end}",
+        )
+        decision = review(proposal, cfg=cfg)
+        decisions.append({
+            "symbol": symbol,
+            "direction": "buy",
+            "approved": decision.approved,
+            "n_approve": decision.n_approve,
+            "n_veto": decision.n_veto,
+            "n_annotate": decision.n_annotate,
+            "summary": decision.majority_rationale,
+            "verdicts": [v.model_dump() for v in decision.verdicts],
+            "cost_usd": decision.cost_usd,
+        })
+        outcome = "APPROVED" if decision.approved else "VETOED"
+        log.info(f"committee {outcome} buy {symbol}: {decision.majority_rationale}")
+        if decision.approved:
+            approved.add(symbol)
+    log.info("committee: %d/%d buys approved", len(approved), len(adds))
+    return approved, decisions
 
 
 def _build_record(
@@ -202,6 +271,7 @@ def _build_record(
     removes: set,
     orders: list[dict],
     dry_run: bool,
+    committee_decisions: list[dict] | None = None,
 ) -> dict:
     return {
         "timestamp_utc": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -218,6 +288,7 @@ def _build_record(
         "adds": sorted(adds),
         "removes": sorted(removes),
         "orders": orders,
+        "committee_decisions": committee_decisions or [],
     }
 
 
@@ -246,6 +317,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="Plan orders but don't submit (no Alpaca write)")
     parser.add_argument("--force", action="store_true",
                         help="Run even when the market is closed")
+    parser.add_argument("--with-committee", action="store_true",
+                        help="Run each proposed buy through the M5 risk-veto committee. "
+                             "Vetoed buys are logged but not submitted. Sells pass through unchanged.")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -277,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[m3-live] M1:        {args.m1_config}  (universe={m1.universe})")
     print(f"[m3-live] signals:   {args.signals}")
     print(f"[m3-live] mode:      {'DRY-RUN' if args.dry_run else 'LIVE PAPER'}")
+    print(f"[m3-live] committee: {'ON' if args.with_committee else 'off'}")
     print(f"[m3-live] output:    {output_dir}")
     print()
 
@@ -284,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
         return run_once(
             m1=m1, signals_csv=args.signals, output_dir=output_dir,
             dry_run=args.dry_run, force_off_hours=args.force,
+            with_committee=args.with_committee,
         )
     except Exception as e:  # noqa: BLE001
         log.exception("m3-live failed")
