@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.2675907605327552,
+  "annualised_volatility": 0.09465106517205193,
+  "benchmark_annualised_return": 0.2144310474395752,
+  "config_hash": "9ca0d0509ab3fc2f",
+  "config_name": "world_indices_lstm",
+  "excess_return": 0.05315971309318002,
+  "git_sha": "f44a332",
+  "hit_rate": 0.5725190839694656,
+  "max_drawdown": -0.08150189705317434,
+  "model": "lstm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:41:56+00:00",
+  "sharpe": 2.8271288869950086,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 92.42498231744497,
+  "universe": "world_indices"
+}

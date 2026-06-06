@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.08376307271142272,
+  "annualised_volatility": 0.33407598953965706,
+  "benchmark_annualised_return": 0.33030417561531067,
+  "config_hash": "82f25a460295741b",
+  "config_name": "crypto_lightgbm",
+  "excess_return": -0.24654110290388795,
+  "git_sha": "f44a332",
+  "hit_rate": 0.4172366621067031,
+  "max_drawdown": -0.3717053791982232,
+  "model": "lightgbm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:40:03+00:00",
+  "sharpe": 0.25073059822959676,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 156.08002149515184,
+  "universe": "crypto"
+}

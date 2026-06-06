@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.023242757247254876,
+  "annualised_volatility": 0.1418838031221792,
+  "benchmark_annualised_return": 0.10234397649765015,
+  "config_hash": "56df28d4227e3262",
+  "config_name": "nifty50_lightgbm",
+  "excess_return": -0.07910121925039527,
+  "git_sha": "f44a332",
+  "hit_rate": 0.5414141414141415,
+  "max_drawdown": -0.21256156947184746,
+  "model": "lightgbm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:38:10+00:00",
+  "sharpe": 0.16381543725072015,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 165.25289007415387,
+  "universe": "nifty50"
+}

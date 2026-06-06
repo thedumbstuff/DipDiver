@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.225069697114413,
+  "annualised_volatility": 0.09621643388665486,
+  "benchmark_annualised_return": 0.2144310474395752,
+  "config_hash": "f1c0b9b088eaa86c",
+  "config_name": "world_indices_lightgbm",
+  "excess_return": 0.010638649674837797,
+  "git_sha": "f44a332",
+  "hit_rate": 0.5916030534351145,
+  "max_drawdown": -0.11207444344048612,
+  "model": "lightgbm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:41:04+00:00",
+  "sharpe": 2.339202234199931,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 94.31630017976723,
+  "universe": "world_indices"
+}

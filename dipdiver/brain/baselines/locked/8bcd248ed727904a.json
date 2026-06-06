@@ -1,0 +1,20 @@
+{
+  "annualised_return": -0.03780406561943122,
+  "annualised_volatility": 0.4344822878814182,
+  "benchmark_annualised_return": 0.33030417561531067,
+  "config_hash": "8bcd248ed727904a",
+  "config_name": "crypto_lstm",
+  "excess_return": -0.3681082412347419,
+  "git_sha": "f44a332",
+  "hit_rate": 0.4582763337893297,
+  "max_drawdown": -0.5892078868658241,
+  "model": "lstm",
+  "n_trades": 0,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-05-30T10:40:15+00:00",
+  "sharpe": -0.08700945164823141,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 130.85146470106773,
+  "universe": "crypto"
+}
