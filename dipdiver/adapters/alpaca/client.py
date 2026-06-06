@@ -32,13 +32,33 @@ class PositionSnapshot:
 
 
 class AlpacaPaperClient:
-    """Minimal Alpaca paper-trading client.
+    """Minimal Alpaca trading client.
 
-    Reads `ALPACA_API_KEY` and `ALPACA_API_SECRET` from environment. Always
-    paper=True; we do not provide a live-money mode here.
+    Reads `ALPACA_API_KEY` and `ALPACA_API_SECRET` from environment. Defaults
+    to paper=True. To enable live mode (real money), you must:
+
+        1. Pass mode="live" explicitly.
+        2. Have env DIPDIVER_LIVE_TRADING=true (extra belt-and-suspenders).
+        3. Pass a `strategy_id` whose LiveTradingGate.check() returns passed=True.
+
+    Otherwise raises LiveModeNotAllowedError. There is no path that flips the
+    underlying alpaca-py `paper=False` flag without all three conditions met.
+
+    The class keeps the legacy `AlpacaPaperClient` name to preserve imports;
+    the `mode` kwarg is the discriminator.
     """
 
-    def __init__(self, api_key: str | None = None, api_secret: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        *,
+        mode: str = "paper",
+        strategy_id: str | None = None,
+    ) -> None:
+        if mode not in ("paper", "live"):
+            raise ValueError(f"mode must be 'paper' or 'live', got {mode!r}")
+
         key = api_key or os.environ.get("ALPACA_API_KEY", "")
         secret = api_secret or os.environ.get("ALPACA_API_SECRET", "")
         if not key or not secret:
@@ -48,10 +68,30 @@ class AlpacaPaperClient:
                 "and put them in .env.m2."
             )
 
+        self.mode = mode
+        if mode == "live":
+            # Stage 4 / M11 — three-way lock before we even construct the SDK.
+            from dipdiver.adapters.alpaca.gate import (
+                LiveModeNotAllowedError,
+                LiveTradingGate,
+            )
+            env_ok = (os.environ.get("DIPDIVER_LIVE_TRADING") or "").lower() == "true"
+            if not strategy_id:
+                raise LiveModeNotAllowedError(
+                    LiveTradingGate("unknown").check(),
+                    missing_env=None,
+                )
+            gate_result = LiveTradingGate(strategy_id).check()
+            if not (env_ok and gate_result.passed):
+                raise LiveModeNotAllowedError(
+                    gate_result,
+                    missing_env=None if env_ok else "DIPDIVER_LIVE_TRADING=true",
+                )
+
         from alpaca.trading.client import TradingClient
         from alpaca.data.historical import StockHistoricalDataClient
 
-        self._trading = TradingClient(key, secret, paper=True)
+        self._trading = TradingClient(key, secret, paper=(mode == "paper"))
         self._data = StockHistoricalDataClient(key, secret)
 
     # ---- account / clock ---------------------------------------------------

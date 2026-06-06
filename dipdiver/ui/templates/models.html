@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Models — DipDiver{% endblock %}
+{% block content %}
+<section class="space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Model versions</h1>
+      <p class="text-sm text-zinc-400">
+        Every M1 retrain logs a row. Locked rows drive current signals; expired test windows turn red.
+      </p>
+    </div>
+    <form method="post" action="/triggers/run">
+      <input type="hidden" name="job_id" value="m1_retrain">
+      <button class="bg-emerald-700 hover:bg-emerald-600 rounded px-3 py-1 text-sm">Run m1_retrain now</button>
+    </form>
+  </header>
+
+  {% if rows %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-zinc-400 text-left">
+          <tr>
+            <th>Config</th>
+            <th>Status</th>
+            <th>Age</th>
+            <th>Train</th>
+            <th>Test</th>
+            <th class="text-right" title="Annualised return / annualised vol">Sharpe</th>
+            <th class="text-right" title="Largest peak-to-trough drawdown">MDD</th>
+            <th class="text-right" title="Fraction of days with positive return">Hit%</th>
+            <th>Locked on</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td class="mono">{{ r.config_name }}<div class="text-xs text-zinc-500">{{ r.config_hash }}</div></td>
+              <td><span class="pill pill-{% if r.status == 'locked' %}ok{% elif r.status == 'rejected' %}err{% elif r.status == 'candidate' %}info{% else %}muted{% endif %}">{{ r.status }}</span></td>
+              <td><span class="pill pill-{{ r.age.tone }}">{{ r.age.label }}</span></td>
+              <td class="text-xs mono text-zinc-400">{{ r.train_start }} → {{ r.train_end }}</td>
+              <td class="text-xs mono text-zinc-400">{{ r.test_start }} → {{ r.test_end }}</td>
+              <td class="text-right mono">{{ "%.2f"|format(r.sharpe or 0) }}</td>
+              <td class="text-right mono">{{ "%.1f"|format((r.max_dd or 0) * 100) }}%</td>
+              <td class="text-right mono">{{ "%.0f"|format((r.hit_rate or 0) * 100) }}%</td>
+              <td class="text-xs mono text-zinc-500">{{ r.locked_on }}</td>
+              <td class="text-xs text-zinc-300">{{ r.notes }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-zinc-500 text-sm">No model versions recorded yet. Run <code class="mono">m1_retrain</code> via /triggers.</p>
+  {% endif %}
+
+  <p class="text-xs text-zinc-500">
+    Gate thresholds: Sharpe ≥ 0.5, |MDD| ≤ 0.30, hit-rate ≥ 0.45. A failing run stays as <span class="pill pill-info">candidate</span> while the prior locked model keeps serving picks.
+  </p>
+</section>
+{% endblock %}

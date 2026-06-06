@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Positions · DipDiver Ops{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-4">Live Alpaca paper positions</h1>
+
+{% if error %}
+  <div class="bg-red-950/40 border border-red-800 rounded p-4 text-sm text-red-200">
+    Alpaca unreachable: <span class="mono">{{ error }}</span>
+  </div>
+{% else %}
+
+{% if account %}
+<div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800 mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div><div class="text-zinc-500 text-xs">equity</div><div class="text-lg mono">${{ "%.2f"|format(account.equity) }}</div></div>
+    <div><div class="text-zinc-500 text-xs">cash</div><div class="text-lg mono">${{ "%.2f"|format(account.cash) }}</div></div>
+    <div><div class="text-zinc-500 text-xs">buying power</div><div class="text-lg mono">${{ "%.2f"|format(account.buying_power) }}</div></div>
+    <div><div class="text-zinc-500 text-xs">status</div><div class="text-lg mono">{{ account.status }}</div></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+  {% if positions %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr>
+        <th class="text-left">Symbol</th><th class="text-right">Qty</th>
+        <th class="text-right">Avg entry</th><th class="text-right">Market value</th>
+        <th class="text-right">Unrealised</th><th class="text-right">%</th>
+      </tr></thead>
+      <tbody>
+      {% for p in positions %}
+        <tr>
+          <td class="mono">{{ p.symbol }}</td>
+          <td class="text-right mono text-xs">{{ "%.4f"|format(p.qty) }}</td>
+          <td class="text-right mono text-xs">${{ "%.2f"|format(p.avg_entry_price) }}</td>
+          <td class="text-right mono text-xs">${{ "%.2f"|format(p.market_value) }}</td>
+          <td class="text-right mono text-xs {% if p.unrealised_pl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+            {{ "+" if p.unrealised_pl >= 0 else "" }}${{ "%.2f"|format(p.unrealised_pl) }}
+          </td>
+          <td class="text-right mono text-xs {% if p.unrealised_plpc >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+            {{ "+" if p.unrealised_plpc >= 0 else "" }}{{ "%.2f"|format(p.unrealised_plpc * 100) }}%
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 p-6 text-sm">No open positions.</div>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}

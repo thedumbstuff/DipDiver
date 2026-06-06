@@ -7,8 +7,9 @@ manually after market open (or with --force to test off-hours).
 Pipeline:
     1. m3_live_alpaca.run_once  (compute target, submit orders, write run record)
     2. m6_backfill.main         (read all m3_live records, append new ones to scoreboard.jsonl)
-    3. (future) fetch T-1 P&L from Alpaca and write a PnlSettledEvent
-    4. (future) render docs/SCOREBOARD.md and commit
+    3. pnl_settle.run           (settle yesterday's P&L into scoreboard.jsonl)
+    4. veto_backfill.run        (write T+5 counterfactuals for past committee vetoes)
+    5. scoreboard_render.run    (write rendered/SCOREBOARD.md so it's fresh by morning)
 
 Usage:
     python scripts/m6_nightly.py --m1-config dow30_lightgbm.yaml --with-committee
@@ -85,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         return rc
 
     print()
-    print("[m6-nightly] step 2/2: m6_backfill (promote new run records)")
+    print("[m6-nightly] step 2/5: m6_backfill (promote new run records)")
     print("-" * 78)
     from scripts.m6_backfill import main as backfill_main
     bf_argv: list[str] = []
@@ -99,9 +100,50 @@ def main(argv: list[str] | None = None) -> int:
         return rc
 
     print()
-    print("[m6-nightly] done.")
-    print("   render: python scripts/m6_render_scoreboard.py")
-    return 0
+    print("[m6-nightly] step 3/5: pnl_settle (settle yesterday's P&L)")
+    print("-" * 78)
+    overall_rc = 0
+    try:
+        from dipdiver.ui.jobs import pnl_settle
+        result = pnl_settle.run()
+        print(f"   {result.get('message', result)}")
+        if result.get("rc", 0) != 0:
+            overall_rc = result["rc"]
+            print(f"[m6-nightly] pnl_settle non-zero rc; continuing to remaining steps")
+    except Exception as e:  # noqa: BLE001
+        log.exception("pnl_settle failed")
+        print(f"[m6-nightly] pnl_settle crashed: {type(e).__name__}: {e}; continuing")
+        overall_rc = overall_rc or 1
+
+    print()
+    print("[m6-nightly] step 4/5: veto_backfill (T+5 counterfactuals for past vetoes)")
+    print("-" * 78)
+    try:
+        from dipdiver.ui.jobs import veto_backfill
+        result = veto_backfill.run()
+        print(f"   {result.get('message', result)}")
+        if result.get("rc", 0) != 0 and overall_rc == 0:
+            overall_rc = result["rc"]
+    except Exception as e:  # noqa: BLE001
+        log.exception("veto_backfill failed")
+        print(f"[m6-nightly] veto_backfill crashed: {type(e).__name__}: {e}; continuing")
+        overall_rc = overall_rc or 1
+
+    print()
+    print("[m6-nightly] step 5/5: scoreboard_render (refresh SCOREBOARD.md)")
+    print("-" * 78)
+    try:
+        from dipdiver.ui.jobs import scoreboard_render
+        result = scoreboard_render.run()
+        print(f"   rendered {result.get('rows_rendered', 0)} rows -> {result.get('output_path', '?')}")
+    except Exception as e:  # noqa: BLE001
+        log.exception("scoreboard_render failed")
+        print(f"[m6-nightly] scoreboard_render crashed: {type(e).__name__}: {e}")
+        overall_rc = overall_rc or 1
+
+    print()
+    print(f"[m6-nightly] done. (overall rc={overall_rc})")
+    return overall_rc
 
 
 if __name__ == "__main__":

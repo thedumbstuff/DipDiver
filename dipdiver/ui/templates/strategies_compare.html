@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Strategy compare — DipDiver{% endblock %}
+{% block content %}
+<section class="space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Strategy compare</h1>
+    <p class="text-sm text-zinc-400">
+      Side-by-side A/B view. Add or change strategies via the
+      <span class="mono">?ids=…,…</span> query string.
+    </p>
+  </header>
+
+  {% if cols %}
+    <div class="grid grid-cols-1 md:grid-cols-{{ cols|length }} gap-3">
+      {% for c in cols %}
+        <article class="bg-zinc-900 rounded p-4 border border-zinc-800 space-y-2">
+          <h2 class="text-lg font-semibold mono">{{ c.strategy_id }}</h2>
+          {% if c.summary %}
+            <dl class="text-sm grid grid-cols-2 gap-y-1">
+              <dt class="text-zinc-400">Days</dt><dd class="text-right mono">{{ c.summary.days }}</dd>
+              <dt class="text-zinc-400">Orders</dt><dd class="text-right mono">{{ c.summary.n_orders }}</dd>
+              <dt class="text-zinc-400">Buys reviewed</dt><dd class="text-right mono">{{ c.summary.n_reviewed }}</dd>
+              <dt class="text-zinc-400">Vetoed</dt><dd class="text-right mono">{{ c.summary.n_vetoed }}</dd>
+              <dt class="text-zinc-400">Veto rate</dt><dd class="text-right mono">{{ c.summary.veto_rate_fmt }}</dd>
+              <dt class="text-zinc-400">Committee cost</dt><dd class="text-right mono">{{ c.summary.cost_fmt }}</dd>
+              <dt class="text-zinc-400">Latest</dt><dd class="text-right mono text-zinc-400">{{ c.summary.latest }}</dd>
+            </dl>
+          {% else %}
+            <p class="text-zinc-500 text-sm">No rows recorded.</p>
+          {% endif %}
+
+          {% if c.rows %}
+            <details>
+              <summary class="cursor-pointer text-zinc-400 text-xs mt-3">recent days</summary>
+              <ul class="mt-1 text-xs space-y-1 max-h-48 overflow-y-auto">
+                {% for r in c.rows %}
+                  <li class="flex justify-between">
+                    <a href="/runs/{{ r.date }}?universe={{ r.universe }}" class="no-underline mono">{{ r.date }}</a>
+                    <span class="text-zinc-400">
+                      {{ r.n_orders }} ord · {% if r.pnl %}{{ fmt_currency(r.pnl.realised_pnl_usd) }}{% else %}—{% endif %}
+                    </span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-zinc-500 text-sm">Pass a comma-separated list via <span class="mono">?ids=...</span>. Example:
+      <a href="/strategies-compare?ids=dow30_lightgbm,dow30_lightgbm_committee">dow30 ± committee</a>.
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -104,6 +104,34 @@ def run_once(
     config_name: str | None = None,
 ) -> int:
     from dipdiver.adapters.alpaca.client import AlpacaPaperClient
+    from dipdiver.adapters.alpaca.gate import SUPPORTED_UNIVERSES
+
+    # Stage 4 / M11 — Alpaca cannot trade world_indices/crypto/nifty50 even on
+    # paper (data API is US-equity-only). Fail clearly instead of silently
+    # rejecting orders later.
+    if m1.universe not in SUPPORTED_UNIVERSES:
+        log.error(
+            "universe %r is research-only on the Alpaca adapter. "
+            "Export signals via scripts/m3_export_signals.py for external execution.",
+            m1.universe,
+        )
+        return 3
+
+    # QW5: hard-fail at startup when committee is requested but the LLM key is
+    # missing. Without this guard, the committee silently fail-opens — every
+    # buy gets approved and the user thinks the risk gate is protecting them
+    # when in fact it isn't running at all.
+    if with_committee:
+        from dipdiver.brain.m5.committee import CommitteeConfig
+        _cfg = CommitteeConfig()
+        if not os.environ.get(_cfg.api_key_env):
+            log.error(
+                "--with-committee requested but %s is not set. Refusing to "
+                "proceed silently — the committee would fail-open and approve "
+                "every buy. Set the key in .env.m2 or drop --with-committee.",
+                _cfg.api_key_env,
+            )
+            return 2
 
     topk = int(m1.backtest_params.get("topk", 10))
     n_drop = int(m1.backtest_params.get("n_drop", 3))

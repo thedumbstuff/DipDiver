@@ -270,6 +270,80 @@ Decision 3 changes the tier-1+ evidence story. VALIDATION.md needs a footnote: "
 
 ---
 
+## Implementation status (2026-06-04)
+
+All six phases of the build are landed and verified locally. Ready for user testing + VM deploy.
+
+| Phase | Files shipped | Verified |
+|------|---------------|----------|
+| M8.1 — scaffold | `dipdiver/ui/{app,cli,settings,db,helpers}.py` + `jobs/` + base template + dashboard + health routes | ✅ server boots, dashboard renders |
+| M8.2 — drill-downs | `routes/{runs,strategies,decisions,positions}.py` + 5 templates | ✅ all 4 routes return 200; transcript viewer reads existing run records |
+| M8.3 — scoreboard + logs + alerts | `routes/{scoreboard_page,logs}.py` + 2 templates + `jobs/alerts.py` (Telegram) | ✅ /scoreboard renders existing JSONL; /logs tails files |
+| M8.4 — control surface | `routes/{triggers,config_page,schedule_page,health}.py` + 4 templates + kill-switch handler | ✅ trigger pnl_settle → rc=0; config save persists; schedule save → 303 redirect |
+| M8.5 — deploy | `deploy/{Dockerfile,docker-compose.yml,Caddyfile,README.md}` + `scripts/ops/bootstrap_vm.sh` | not exercised on a real VM yet (user testing) |
+| M8.6 — polish | Telegram via `dipdiver_ui.jobs.alerts.send_alert()` (called from job wrapper + kill-switch) | ✅ no-op when env vars unset |
+
+### Routes registered (18 total)
+
+```
+GET  /                              Dashboard
+GET  /strategies                    Strategies list
+GET  /strategies/<sid>              Strategy detail
+GET  /runs                          Runs list (filterable)
+GET  /runs/<date>                   Run detail (proposal + committee + orders)
+GET  /decisions/<date>/<symbol>     Committee transcript viewer
+GET  /positions                     Live Alpaca paper positions
+GET  /scoreboard                    HTML scoreboard
+GET  /scoreboard.md                 Markdown scoreboard (curl-friendly)
+GET  /triggers                      Trigger panel
+POST /triggers/run                  Run any job manually
+GET  /config                        Form-driven config editor
+POST /config/save                   Persist config + audit
+GET  /schedule                      Cron editor with next-fire preview
+POST /schedule/save                 Update cron, re-register live
+GET  /health                        Alpaca conn + scheduler + recent jobs + kill-switch
+POST /health/kill-switch            FLATTEN + cancel + disable nightly (audit logged)
+GET  /logs                          File tree + tail viewer
+GET  /logs/<path>                   Last 500 lines of one log
+```
+
+### Local quick-start
+
+```bash
+pip install -e ".[ui,m2,m3]"
+dipdiver-ui serve
+# → http://127.0.0.1:8765
+```
+
+State (DB, config, rendered scoreboard) lives at the repo root by default.
+Override with `DIPDIVER_UI_DATA_ROOT=/some/path dipdiver-ui serve`.
+
+### Production deploy (on a Hetzner / DO VM)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/thedumbstuff/DipDiver/main/scripts/ops/bootstrap_vm.sh | sudo bash
+# then: sudo tailscale up
+# then: drop secrets into /var/lib/dipdiver/secrets/.env.m2
+# then: sudo docker compose -f /opt/dipdiver/DipDiver/deploy/docker-compose.yml restart
+# UI at: https://dipdiver.<your-tailnet>.ts.net (use `tailscale serve --bg --https=443 8765`)
+```
+
+See [`deploy/README.md`](../../deploy/README.md) for full details.
+
+### Smoke-test results (2026-06-04)
+
+```
+14/14 GET routes returned 200
+POST /triggers/run pnl_settle → 200 (stub returned rc=0, JobLog row written)
+POST /schedule/save → 303 redirect (cron persisted + APScheduler re-registered)
+POST /config/save → 303 redirect (ui_config.yaml written, ConfigAudit row added)
+SQLite tables populated: schedule_entries=6, job_logs=1, config_audit=2
+```
+
+Kill-switch POST not smoke-tested (would actually close my Alpaca positions).
+The handler is reviewed: cancels orders + close_all_positions + disables nightly
+job + writes KillSwitchEvent + fires Telegram alert.
+
 ## Acceptance criteria
 
 When M8 is done:

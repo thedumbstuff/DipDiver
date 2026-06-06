@@ -82,3 +82,10 @@ scoreboard/
 # Logs
 *.log
 logs/
+
+# M8 UI — dev-mode local state (production state lives at DIPDIVER_UI_DATA_ROOT
+# on the VM and is never committed).
+db/
+config/ui_config.yaml
+rendered/
+

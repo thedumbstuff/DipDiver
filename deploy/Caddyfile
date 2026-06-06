@@ -1,0 +1,28 @@
+# OPTIONAL — reverse proxy + TLS termination.
+#
+# Most setups don't need this: Tailscale Serve can already terminate TLS
+# on the tailnet hostname with `tailscale serve --bg --https=443 8765`.
+# Keep this file if you want Caddy in the picture (e.g. for compression,
+# access logs, or future custom domains).
+#
+# Replace <tailnet> with your actual tailnet name (visible in
+# `tailscale status`).
+
+dipdiver.<tailnet>.ts.net {
+    # Tailscale issues the cert; Caddy reads it via its file provider.
+    tls /var/lib/tailscale/certs/dipdiver.<tailnet>.ts.net.crt \
+        /var/lib/tailscale/certs/dipdiver.<tailnet>.ts.net.key
+
+    # The UI listens on localhost — see docker-compose.yml.
+    reverse_proxy 127.0.0.1:8765 {
+        # Pass real IP for logs.
+        header_up X-Real-IP {remote_host}
+    }
+
+    # Reasonable defaults.
+    encode gzip
+    log {
+        output file /var/log/caddy/dipdiver.log
+        format console
+    }
+}

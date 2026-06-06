@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · DipDiver Ops{% endblock %}
+{% block content %}
+
+<div class="mb-4 rounded-lg p-4 border border-emerald-800 bg-emerald-900/20 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h2 class="text-lg font-semibold">Tomorrow's plan</h2>
+    <p class="text-sm text-zinc-300">Forward-looking suggestions from the latest M1 signals + most recent committee verdicts.</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="/picks?universe=dow30" class="bg-emerald-700 hover:bg-emerald-600 rounded px-4 py-2 no-underline text-white">DOW30 picks</a>
+    <a href="/picks" class="border border-emerald-700 hover:bg-emerald-900/40 rounded px-4 py-2 no-underline text-emerald-200">All universes</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase tracking-wide mb-2">Today</div>
+    {% if today %}
+      <div class="text-2xl font-semibold">{{ today.date }}</div>
+      <div class="text-zinc-400 text-sm mt-1 mono">{{ today.strategy_id }}</div>
+      <div class="mt-3 text-sm">
+        <div>{{ today.n_buys_proposed }} buys proposed · {{ today.n_buys_reviewed }} reviewed</div>
+        {% if today.submitted and today.submitted.committee_active %}
+          <div>{{ today.n_buys_vetoed }} vetoed ({{ fmt_pct(today.veto_rate) }})</div>
+        {% endif %}
+        <div class="text-zinc-500">{{ today.n_orders }} orders submitted</div>
+      </div>
+    {% else %}
+      <div class="text-zinc-500">No scoreboard rows yet. Run <code class="mono">python scripts/m6_backfill.py</code>.</div>
+    {% endif %}
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase tracking-wide mb-2">Last 7 days</div>
+    <div class="text-sm space-y-1">
+      <div><span class="text-zinc-500">days observed:</span> {{ last7_summary.days }}</div>
+      <div><span class="text-zinc-500">total orders:</span> {{ last7_summary.total_orders }}</div>
+      <div><span class="text-zinc-500">buys reviewed:</span> {{ last7_summary.total_buys }}</div>
+      <div><span class="text-zinc-500">vetoed:</span> {{ last7_summary.total_vetoed }} ({{ last7_summary.veto_rate }})</div>
+      <div><span class="text-zinc-500">committee cost:</span> {{ last7_summary.cost }}</div>
+    </div>
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase tracking-wide mb-2">Upcoming runs</div>
+    {% if upcoming %}
+      <ul class="text-sm space-y-1">
+        {% for u in upcoming %}
+          <li class="flex justify-between gap-2">
+            <span class="mono text-zinc-400">{{ u.job_id }}</span>
+            <span class="text-zinc-300">{{ u.when }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="text-zinc-500 text-sm">No jobs scheduled. Visit <a href="/schedule">/schedule</a>.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <div class="lg:col-span-2 bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Scoreboard — last 7 days</h2>
+      <a href="/scoreboard" class="text-xs text-zinc-400 hover:text-white">See all →</a>
+    </div>
+    {% if rows7 %}
+      <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="text-zinc-400">
+          <tr>
+            <th class="text-left">Date</th>
+            <th class="text-left">Strategy</th>
+            <th class="text-right">Orders</th>
+            <th class="text-right">Buys</th>
+            <th class="text-right">Veto%</th>
+            <th class="text-right">P&L</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows7 %}
+            <tr>
+              <td><a href="/runs/{{ r.date }}?universe={{ r.universe }}" class="no-underline hover:underline">{{ r.date }}</a></td>
+              <td class="mono text-xs text-zinc-300">{{ r.strategy_id }}</td>
+              <td class="text-right">{{ r.n_orders }}</td>
+              <td class="text-right">{{ r.n_buys_reviewed }}</td>
+              <td class="text-right">{{ fmt_pct(r.veto_rate) }}</td>
+              <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.realised_pnl_usd) }}{% else %}<span class="text-zinc-600">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <div class="text-zinc-500 text-sm">No rows yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <h2 class="text-lg font-semibold mb-3">Recent job activity</h2>
+    {% if recent_logs %}
+      <ul class="text-sm space-y-2">
+        {% for r in recent_logs %}
+          <li>
+            <div class="flex justify-between gap-2">
+              <span class="mono text-zinc-300">{{ r.job_id }}</span>
+              <span class="pill pill-{% if r.status == 'success' %}ok{% elif r.status == 'error' %}err{% else %}info{% endif %}">{{ r.status }}</span>
+            </div>
+            <div class="text-xs text-zinc-500">{{ r.started_ago }} · {{ r.summary }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="text-zinc-500 text-sm">No jobs have run yet.</div>
+    {% endif %}
+    <div class="mt-3 text-xs">
+      <a href="/triggers" class="text-zinc-400 hover:text-white">Run something now →</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -13,13 +13,27 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Universe:
     name: str
-    region: str  # "us" | "in" | "crypto"
+    region: str  # "us" | "in" | "crypto" | "world"
     instruments: tuple[str, ...]
     benchmark: str            # in-store symbol name used by Qlib (e.g. "DJI")
     benchmark_yahoo: str      # Yahoo symbol used to fetch (e.g. "^DJI")
+    # Stage 6 / M13 — whether this universe can execute live via the current
+    # broker adapters. world_indices / crypto / nifty50 are research-only on
+    # Alpaca; flagging at the source documents intent independently of the
+    # SUPPORTED_UNIVERSES set on the adapter.
+    live_executable: bool = True
 
     def __len__(self) -> int:
         return len(self.instruments)
+
+    @property
+    def symbols(self) -> tuple[str, ...]:
+        """Alias for instruments — used by registry_api for consistency."""
+        return self.instruments
+
+    @property
+    def label(self) -> str:
+        return self.name
 
 
 # Dow Jones Industrial Average — 30 components.
@@ -42,6 +56,9 @@ DOW30 = Universe(
 NIFTY50 = Universe(
     name="nifty50",
     region="in",
+    # Indian markets via Zerodha not yet wired — Alpaca cannot execute these.
+    # Flip to True when the IBKR or Zerodha adapter is ready.
+    live_executable=False,
     instruments=(
         "ADANIENT.NS", "ADANIPORTS.NS", "APOLLOHOSP.NS", "ASIANPAINT.NS", "AXISBANK.NS",
         "BAJAJ-AUTO.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "BEL.NS", "BHARTIARTL.NS",
@@ -66,6 +83,7 @@ NIFTY50 = Universe(
 CRYPTO_BASKET = Universe(
     name="crypto",
     region="crypto",
+    live_executable=False,
     instruments=("BTC-USD", "ETH-USD", "SOL-USD"),
     benchmark="BTC-USD",        # already in the universe
     benchmark_yahoo="BTC-USD",
@@ -79,6 +97,7 @@ CRYPTO_BASKET = Universe(
 WORLD_INDICES = Universe(
     name="world_indices",
     region="world",
+    live_executable=False,
     # 14 non-US country indices. S&P 500 is the benchmark only — the baseline
     # question is "can a global cross-country rotation beat the US?".
     instruments=(
@@ -102,8 +121,61 @@ WORLD_INDICES = Universe(
 )
 
 
+# Stage 6 / M13 — SP500 starter membership. Use only DOW30 ∪ top-N S&P 500
+# constituents to keep the install footprint small. For a precise 500-name
+# snapshot, expand via `data/universes/sp500.csv` (one ticker per line) which
+# `data_load_sp500()` reads when present.
+_SP500_STARTER = (
+    # Tech / megacap
+    "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "META", "AMZN", "TSLA", "AVGO", "ORCL",
+    "ADBE", "CRM", "NFLX", "AMD", "INTC", "CSCO", "QCOM", "TXN", "IBM", "INTU",
+    # Financials
+    "BRK-B", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "AXP", "BLK",
+    # Healthcare
+    "JNJ", "UNH", "PFE", "ABBV", "LLY", "MRK", "TMO", "ABT", "DHR", "BMY",
+    # Consumer / industrials / energy
+    "WMT", "PG", "KO", "PEP", "MCD", "COST", "HD", "DIS", "NKE", "SBUX",
+    "XOM", "CVX", "BA", "CAT", "GE", "HON", "MMM", "UPS", "FDX", "LMT",
+)
+
+
+def _load_sp500_extension() -> tuple[str, ...]:
+    """Optionally extend SP500 with extra tickers from data/universes/sp500.csv.
+
+    Allows ops to refresh membership without touching code. Missing file is
+    fine — the starter list is enough to train and trade on.
+    """
+    try:
+        from dipdiver._paths import repo_root
+        path = repo_root() / "data" / "universes" / "sp500.csv"
+        if not path.exists():
+            return ()
+        out: list[str] = []
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            t = raw.strip().upper()
+            if not t or t.startswith("#"):
+                continue
+            out.append(t)
+        return tuple(out)
+    except Exception:  # noqa: BLE001
+        return ()
+
+
+_sp500_full = tuple(sorted(set(_SP500_STARTER + _load_sp500_extension())))
+
+
+SP500 = Universe(
+    name="sp500",
+    region="us",
+    instruments=_sp500_full,
+    benchmark="GSPC",
+    benchmark_yahoo="^GSPC",
+    live_executable=True,
+)
+
+
 UNIVERSES: dict[str, Universe] = {
-    u.name: u for u in (DOW30, NIFTY50, CRYPTO_BASKET, WORLD_INDICES)
+    u.name: u for u in (DOW30, SP500, NIFTY50, CRYPTO_BASKET, WORLD_INDICES)
 }
 
 

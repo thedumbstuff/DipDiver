@@ -22,6 +22,10 @@ class Persona:
     name: str               # snake_case identifier — appears in logs
     label: str              # human label for printouts
     system_prompt: str      # role + reasoning rules
+    # Stage 7 / M14 — bump when you change `system_prompt`. /persona-accuracy
+    # filters by version so verdicts from an old prompt don't pollute
+    # calibration math after a rewrite.
+    prompt_version: str = "v1"
 
 
 _BASE_RULES = """\

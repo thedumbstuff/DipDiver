@@ -33,9 +33,17 @@ def extract_metrics(recorder: Any, benchmark_label: str = "bench") -> dict[str, 
     ann_vol = float(net.std() * np.sqrt(ann))
     sharpe = float(ann_return / ann_vol) if ann_vol > 0 else 0.0
 
+    # Sortino — uses downside deviation only (volatility from losing days).
+    downside = net.where(net < 0, 0.0)
+    downside_vol = float(downside.std() * np.sqrt(ann))
+    sortino = float(ann_return / downside_vol) if downside_vol > 0 else 0.0
+
     equity = (1 + net).cumprod()
     drawdown = (equity / equity.cummax() - 1).min()
     max_dd = float(drawdown) if pd.notna(drawdown) else 0.0
+
+    # Calmar = annualised return / |max drawdown|. Standard quant tearsheet metric.
+    calmar = float(ann_return / abs(max_dd)) if max_dd != 0 else 0.0
 
     hit_rate = float((net > 0).mean()) if len(net) else 0.0
 
@@ -58,6 +66,8 @@ def extract_metrics(recorder: Any, benchmark_label: str = "bench") -> dict[str, 
         "annualised_return": ann_return,
         "annualised_volatility": ann_vol,
         "sharpe": sharpe,
+        "sortino": sortino,
+        "calmar": calmar,
         "max_drawdown": max_dd,
         "hit_rate": hit_rate,
         "turnover": turnover,

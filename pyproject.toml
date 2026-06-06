@@ -63,6 +63,24 @@ m3 = [
     # QuantConnect subscription. See docs/milestones/M3_lean.md step 6.
     "alpaca-py>=0.30",
 ]
+ui = [
+    # M8 operator console: FastAPI + Jinja + APScheduler + SQLAlchemy.
+    # Tailwind/HTMX served via CDN — no Node toolchain. See docs/milestones/M8_ops_ui.md.
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "apscheduler>=3.10",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6",
+    "httpx>=0.27",
+    "croniter>=2.0",
+]
+
+[project.scripts]
+dipdiver-ui = "dipdiver.ui.cli:main"
 
 [project.urls]
 Repository = "https://github.com/thedumbstuff/DipDiver"

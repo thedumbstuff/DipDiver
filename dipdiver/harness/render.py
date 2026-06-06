@@ -70,6 +70,33 @@ class FusedDayRow:
             return 0.0
         return sum(v.cost_usd for v in self.submitted.committee_verdicts)
 
+    @property
+    def equity_at_close(self) -> float | None:
+        return self.pnl.equity_at_close if self.pnl else None
+
+    @property
+    def realised_pnl_usd(self) -> float | None:
+        return self.pnl.realised_pnl_usd if self.pnl else None
+
+    @property
+    def unrealised_pnl_usd(self) -> float | None:
+        return self.pnl.unrealised_pnl_usd if self.pnl else None
+
+    def committee_cost_bps_per_year(self, equity_fallback: float = 100_000.0) -> float | None:
+        """QW1: annualised committee cost in basis points.
+
+        Daily cost × 252 / equity × 10_000. Uses pnl equity when present, else
+        the supplied fallback. Returns None when committee was inactive.
+        """
+        if not self.submitted or not self.submitted.committee_active:
+            return None
+        if self.committee_cost_usd == 0:
+            return 0.0
+        equity = self.pnl.equity_at_close if self.pnl else equity_fallback
+        if equity <= 0:
+            return None
+        return (self.committee_cost_usd * 252.0 / equity) * 10_000.0
+
 
 def fuse_by_day(events: Iterable[ScoreboardEvent]) -> list[FusedDayRow]:
     """Collapse events into one row per (date, universe, strategy_id).
@@ -131,8 +158,20 @@ def render_markdown_table(rows: list[FusedDayRow]) -> str:
     return "\n".join(out)
 
 
+def _aggregate_realised_pnl(items: list[FusedDayRow]) -> float | None:
+    """Sum realised P&L across rows that have it. None if no row has PnL."""
+    settled = [r for r in items if r.pnl is not None]
+    if not settled:
+        return None
+    return sum(r.pnl.realised_pnl_usd for r in settled)  # type: ignore[union-attr]
+
+
 def render_strategy_summary(rows: list[FusedDayRow]) -> str:
-    """Per-strategy running totals across all days observed."""
+    """Per-strategy running totals across all days observed.
+
+    Columns include realised P&L (when settled) and the QW1 committee cost
+    in basis-points-per-year for spend transparency.
+    """
     if not rows:
         return ""
 
@@ -141,19 +180,26 @@ def render_strategy_summary(rows: list[FusedDayRow]) -> str:
         by_strategy.setdefault(r.strategy_id, []).append(r)
 
     out: list[str] = []
-    out.append("| Strategy | Days | Total orders | Buys proposed | Buys reviewed | Vetoed | Aggregate veto rate | Committee cost |")
-    out.append("|----------|-----:|-------------:|--------------:|--------------:|-------:|--------------------:|---------------:|")
+    out.append("| Strategy | Days | Orders | Buys reviewed | Vetoed | Veto rate | Realised P&L | Committee $ | Committee bps/yr |")
+    out.append("|----------|-----:|-------:|--------------:|-------:|----------:|-------------:|------------:|-----------------:|")
     for sid, items in sorted(by_strategy.items()):
         days = len(items)
         n_orders = sum(r.n_orders for r in items)
-        n_proposed = sum(r.n_buys_proposed for r in items)
         n_reviewed = sum(r.n_buys_reviewed for r in items)
         n_vetoed = sum(r.n_buys_vetoed for r in items)
         rate = (n_vetoed / n_reviewed) if n_reviewed else None
         cost = sum(r.committee_cost_usd for r in items)
+        realised = _aggregate_realised_pnl(items)
+        # bps/yr — average across the strategy's daily bps where committee was on.
+        bps_vals = [
+            r.committee_cost_bps_per_year() for r in items
+            if r.committee_cost_bps_per_year() is not None
+        ]
+        bps = (sum(bps_vals) / len(bps_vals)) if bps_vals else None
+        bps_cell = f"{bps:.1f}" if bps is not None else "—"
         out.append(
-            f"| `{sid}` | {days} | {n_orders} | {n_proposed} | {n_reviewed} | {n_vetoed} "
-            f"| {_fmt_rate(rate)} | ${cost:.4f} |"
+            f"| `{sid}` | {days} | {n_orders} | {n_reviewed} | {n_vetoed} "
+            f"| {_fmt_rate(rate)} | {_fmt_pnl(realised)} | ${cost:.4f} | {bps_cell} |"
         )
     return "\n".join(out)
 

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Health · DipDiver Ops{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-4">Health</h1>
+
+{% if live_gates %}
+<section class="bg-zinc-900 rounded-lg p-4 border border-zinc-800 mb-6">
+  <h2 class="text-lg font-semibold mb-2">Live trading gate (Stage 4 / M11)</h2>
+  <p class="text-xs text-zinc-500 mb-3">
+    These criteria must all pass before <span class="mono">AlpacaPaperClient(mode="live")</span> can be constructed. Paper trading is always allowed.
+  </p>
+  <div class="space-y-2">
+    {% for g in live_gates %}
+      <div class="border border-zinc-800 rounded p-3">
+        <div class="flex items-center justify-between">
+          <div class="mono">{{ g.strategy_id }}</div>
+          {% if g.passed %}
+            <span class="pill pill-ok">live-eligible</span>
+          {% else %}
+            <span class="pill pill-err">not eligible</span>
+          {% endif %}
+        </div>
+        {% if g.criteria %}
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-xs">
+              <thead class="text-zinc-400 text-left"><tr><th>Criterion</th><th>Threshold</th><th>Actual</th><th></th></tr></thead>
+              <tbody>
+                {% for c in g.criteria %}
+                  <tr>
+                    <td class="mono">{{ c.name }}</td>
+                    <td class="mono text-zinc-400">{{ c.threshold }}</td>
+                    <td class="mono">{{ c.actual }}</td>
+                    <td>{% if c.passed %}<span class="pill pill-ok">ok</span>{% else %}<span class="pill pill-err">fail</span>{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <h2 class="text-lg font-semibold mb-2">Alpaca paper</h2>
+    {% if alpaca.ok %}
+      <span class="pill pill-ok">connected</span>
+      <div class="mt-3 text-sm grid grid-cols-2 gap-y-1">
+        <div class="text-zinc-500">status</div><div class="mono">{{ alpaca.status }}</div>
+        <div class="text-zinc-500">equity</div><div class="mono">${{ "%.2f"|format(alpaca.equity) }}</div>
+        <div class="text-zinc-500">cash</div><div class="mono">${{ "%.2f"|format(alpaca.cash) }}</div>
+        <div class="text-zinc-500">buying power</div><div class="mono">${{ "%.2f"|format(alpaca.buying_power) }}</div>
+      </div>
+    {% else %}
+      <span class="pill pill-err">disconnected</span>
+      <pre class="mt-3 text-xs whitespace-pre-wrap">{{ alpaca.message }}</pre>
+      <div class="text-xs text-zinc-400 mt-3 space-y-1">
+        {% if env_info %}
+          <p>Env loader checked: <span class="mono">{{ env_info.files_loaded|join(", ") if env_info.files_loaded else "(no .env files found)" }}</span></p>
+          {% if env_info.vars_skipped_placeholder and ("ALPACA_API_KEY" in env_info.vars_skipped_placeholder or "ALPACA_API_SECRET" in env_info.vars_skipped_placeholder) %}
+            <p class="text-amber-400">⚠️ Alpaca keys present but look like placeholders (<span class="mono">{{ env_info.vars_skipped_placeholder|join(", ") }}</span>). Replace <span class="mono">REPLACE_ME</span> with real values.</p>
+          {% elif "ALPACA_API_KEY" not in env_info.vars_set and "ALPACA_API_KEY" not in env_info.vars_skipped_already_set %}
+            <p>Get keys from <a href="https://app.alpaca.markets/paper/dashboard/overview">app.alpaca.markets</a> and put them in <span class="mono">.env.m2</span> (gitignored) or <span class="mono">.env.m2.example</span> (local dev fallback).</p>
+          {% endif %}
+        {% else %}
+          <p>Check ALPACA_API_KEY / ALPACA_API_SECRET in .env.m2.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <h2 class="text-lg font-semibold mb-2">Scheduler</h2>
+    {% if scheduler_ok %}
+      <span class="pill pill-ok">running</span>
+    {% else %}
+      <span class="pill pill-err">stopped</span>
+    {% endif %}
+    <div class="mt-3 text-sm">
+      {% if jobs %}
+        <div class="overflow-x-auto"><table class="w-full text-xs">
+          <thead class="text-zinc-400"><tr><th class="text-left">Job</th><th class="text-left">Next fire</th></tr></thead>
+          <tbody>
+            {% for j in jobs %}
+              <tr><td class="mono">{{ j.id }}</td><td class="text-zinc-400">{{ j.next }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+      {% else %}
+        <div class="text-zinc-500">No jobs registered.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800 mb-6">
+  <h2 class="text-lg font-semibold mb-2">Recent job activity (last 10)</h2>
+  {% if recent_logs %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr><th class="text-left">Job</th><th>Status</th><th class="text-left">Started</th><th class="text-left">Summary / error</th></tr></thead>
+      <tbody>
+        {% for r in recent_logs %}
+          <tr>
+            <td class="mono text-xs">{{ r.job_id }}</td>
+            <td><span class="pill pill-{% if r.status == 'success' %}ok{% elif r.status == 'error' %}err{% else %}info{% endif %}">{{ r.status }}</span></td>
+            <td class="text-zinc-400 text-xs">{{ r.started }} ({{ r.ago }})</td>
+            <td class="text-xs">{{ r.summary }}{% if r.error %} <span class="text-red-400">· {{ r.error }}</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 text-sm">No job runs recorded yet.</div>
+  {% endif %}
+</div>
+
+<div class="bg-zinc-900 rounded-lg p-4 border border-red-900/40">
+  <h2 class="text-lg font-semibold mb-2 text-red-300">⚠ Kill switch</h2>
+  <p class="text-sm text-zinc-400 mb-3">
+    Cancels all open Alpaca orders, flattens all positions to cash, and disables the nightly job.
+    Type <code class="mono bg-zinc-800 px-1 rounded">FLATTEN</code> to confirm. The action is logged.
+  </p>
+  <form method="post" action="/health/kill-switch" class="space-y-2">
+    <textarea name="reason" required rows="2" placeholder="reason (required, logged)"
+              class="w-full bg-zinc-950 border border-zinc-700 rounded p-2 text-sm"></textarea>
+    <div class="flex flex-wrap gap-2 items-center">
+      <input name="confirm" required placeholder="type FLATTEN"
+             class="bg-zinc-950 border border-zinc-700 rounded p-2 text-sm flex-1 min-w-[10rem]">
+      <button type="submit"
+              class="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-semibold w-full sm:w-auto">
+        Execute kill switch
+      </button>
+    </div>
+  </form>
+
+  {% if kill_history %}
+    <div class="mt-4">
+      <div class="text-xs text-zinc-500 mb-1">Recent kill events</div>
+      <ul class="text-xs space-y-1">
+        {% for k in kill_history %}
+          <li>
+            <span class="mono">{{ k.when }}</span> ({{ k.ago }}) ·
+            <span class="pill pill-{% if k.status == 'succeeded' %}ok{% elif k.status == 'failed' %}err{% else %}warn{% endif %}">{{ k.status }}</span>
+            — {{ k.reason }}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

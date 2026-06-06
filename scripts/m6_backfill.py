@@ -147,6 +147,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Include dry-run records (default: skip them)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print what would be written; don't append")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="QW8: backup scoreboard.jsonl to .bak then rebuild from m3_live records "
+                             "(use after schema migrations). DaySubmittedEvents only — "
+                             "pnl_settled and veto_outcome rows are LOST.")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -161,6 +165,17 @@ def main(argv: list[str] | None = None) -> int:
     if not m3_live_root.exists():
         print(f"[m6-backfill] no m3_live records at {m3_live_root}; nothing to do")
         return 0
+
+    # QW8: --rebuild backs up the existing JSONL to .bak.<utc> then truncates so
+    # the backfill repopulates from m3_live. PnL/veto rows would need to be
+    # re-derived via pnl_settle/veto_backfill afterwards (this tool only knows
+    # how to recreate DaySubmittedEvents).
+    if args.rebuild and scoreboard_path.exists():
+        from datetime import datetime, timezone
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup = scoreboard_path.with_suffix(f".jsonl.bak.{stamp}")
+        scoreboard_path.rename(backup)
+        print(f"[m6-backfill] --rebuild: backed up to {backup.name}")
 
     existing = read_events(scoreboard_path)
     print(f"[m6-backfill] scoreboard:    {scoreboard_path}")

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DipDiver Ops{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:9999px; font-size:0.75rem; }
+    .pill-ok { background:#1f6f3a; color:#fff; }
+    .pill-warn { background:#7a5a1f; color:#fff; }
+    .pill-err { background:#5a1f1f; color:#fff; }
+    .pill-info { background:#3a4a7f; color:#fff; }
+    .pill-muted { background:#444; color:#ddd; }
+    a { text-decoration: underline; text-decoration-color: rgba(99,102,241,0.4); text-underline-offset:2px; }
+    a:hover { text-decoration-color: rgba(99,102,241,1); }
+    table { border-collapse: collapse; }
+    th, td { padding: 6px 10px; }
+    thead tr { border-bottom: 1px solid rgba(255,255,255,0.15); }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+    tbody tr:hover { background: rgba(255,255,255,0.04); }
+    pre { background: #0a0a0a; padding: 12px; border-radius: 6px; overflow:auto; font-size:0.85rem; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <a href="/" class="font-semibold text-lg no-underline">DipDiver <span class="text-zinc-500 hidden sm:inline">/ Ops</span></a>
+      </div>
+      <a href="/health" class="text-xs sm:text-sm pill {% if health_ok|default(true) %}pill-ok{% else %}pill-err{% endif %} no-underline order-3 sm:order-none">
+        {% if health_ok|default(true) %}🟢 healthy{% else %}🚨 unhealthy{% endif %}
+      </a>
+      <nav class="flex flex-wrap gap-x-1 gap-y-1 text-sm text-zinc-300 basis-full sm:basis-auto order-2 sm:order-none overflow-x-auto whitespace-nowrap">
+        {% macro nav_link(href, label, base_path=None, accent=false) -%}
+          {% set bp = base_path or href.split('?')[0] %}
+          {% set is_active = nav_active(current_path, bp) %}
+          <a href="{{ href }}"
+             class="px-2 py-1 rounded no-underline transition-colors
+                    {% if is_active %}
+                      bg-zinc-800 text-white font-semibold
+                      {% if accent %}ring-1 ring-emerald-500/50{% endif %}
+                    {% else %}
+                      {% if accent %}text-emerald-400 font-semibold hover:text-emerald-300{% else %}hover:text-white hover:bg-zinc-800/60{% endif %}
+                    {% endif %}"
+             {% if is_active %}aria-current="page"{% endif %}>{{ label }}</a>
+        {%- endmacro %}
+
+        {{ nav_link("/", "Dashboard") }}
+        {{ nav_link("/picks", "Picks", accent=true) }}
+        {{ nav_link("/strategies", "Strategies") }}
+        {{ nav_link("/strategies-compare?ids=dow30_lightgbm,dow30_lightgbm_committee", "A/B", base_path="/strategies-compare") }}
+        {{ nav_link("/runs", "Runs") }}
+        {{ nav_link("/scoreboard", "Scoreboard") }}
+        {{ nav_link("/positions", "Positions") }}
+        {{ nav_link("/watchlist", "Watchlist") }}
+        {{ nav_link("/triggers", "Triggers") }}
+        {{ nav_link("/schedule", "Schedule") }}
+        {{ nav_link("/config", "Config") }}
+        {{ nav_link("/logs", "Logs") }}
+        {{ nav_link("/models", "Models") }}
+        {{ nav_link("/persona-accuracy", "Personas") }}
+      </nav>
+    </div>
+  </header>
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="max-w-7xl mx-auto px-3 sm:px-6 py-6 text-xs text-zinc-500 border-t border-zinc-900 mt-12">
+    DipDiver Ops · paper trading only · see <a href="https://github.com/thedumbstuff/DipDiver/blob/main/docs/DISCLAIMER.md">DISCLAIMER</a>
+  </footer>
+</body>
+</html>

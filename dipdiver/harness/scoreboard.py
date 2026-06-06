@@ -96,6 +96,11 @@ class PnlSettledEvent(_EventBase):
     """Realised + unrealised P&L for day D. Written T+1 once close prices land.
 
     Written as a NEW event, not a mutation — preserves the audit chain.
+
+    Attribution: when a single Alpaca account hosts multiple strategies, daily
+    P&L is allocated proportionally by submitted-notional. `attribution_method`
+    documents which rule was used; `attribution_weight` is the fraction
+    (1.0 == sole strategy on that day).
     """
 
     event_type: Literal["pnl_settled"] = "pnl_settled"
@@ -104,6 +109,10 @@ class PnlSettledEvent(_EventBase):
     holdings_at_close: dict[str, float] = Field(default_factory=dict)  # symbol -> market value
     equity_at_close: float
     source: str = "alpaca_portfolio_history"  # where the P&L came from
+    attribution_method: Literal["single_strategy", "weighted_by_notional"] = "single_strategy"
+    attribution_weight: float = 1.0
+    slippage_usd: float | None = None
+    commission_usd: float | None = None
 
 
 class VetoOutcomeEvent(_EventBase):
@@ -200,16 +209,25 @@ def already_recorded(
     universe: str,
     strategy_id: str,
     event_type: str,
+    symbol: str | None = None,
 ) -> bool:
-    """Idempotence check: has this (date, universe, strategy, type) already
-    been written? Used by backfill and nightly wrappers to avoid duplicates.
+    """Idempotence check: has this (date, universe, strategy, type[, symbol])
+    already been written?
+
+    For `veto_outcome` rows pass a symbol — vetos are per-symbol so one
+    DaySubmittedEvent can produce many outcome rows on the same key tuple.
+    For `day_submitted` and `pnl_settled` leave symbol=None.
     """
     for e in events:
-        if (
+        if not (
             e.event_type == event_type
             and e.date == date
             and e.universe == universe
             and e.strategy_id == strategy_id
         ):
-            return True
+            continue
+        if symbol is not None and isinstance(e, VetoOutcomeEvent):
+            if e.symbol != symbol:
+                continue
+        return True
     return False

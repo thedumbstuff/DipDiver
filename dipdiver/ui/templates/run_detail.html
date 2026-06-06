@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ date }} · {{ universe }} · Runs{% endblock %}
+{% block content %}
+
+<a href="/runs" class="text-xs text-zinc-400 hover:text-white">← all runs</a>
+<h1 class="text-2xl font-semibold mt-2 mb-1">{{ date }} · {{ universe }}</h1>
+<div class="text-zinc-400 mono text-sm mb-4">
+  {{ rec.get("config_name") or "—" }} ·
+  config_hash={{ rec.get("config_hash") or "—" }} ·
+  {% if rec.get("dry_run") %}<span class="pill pill-warn">DRY RUN</span>{% else %}<span class="pill pill-ok">LIVE</span>{% endif %}
+  {% if rec.get("market_open") %} · <span class="pill pill-info">market open</span>{% else %} · <span class="pill pill-muted">market closed</span>{% endif %}
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase mb-2">Proposal</div>
+    <div class="text-sm space-y-1">
+      <div><span class="text-zinc-500">signal date:</span> {{ rec.get("signal_date_used") }}</div>
+      <div><span class="text-zinc-500">target:</span> {{ rec.get("target_post", [])|length }} names</div>
+      <div><span class="text-zinc-500">adds:</span> <span class="mono text-xs">{{ rec.get("adds", []) | join(", ") or "(none)" }}</span></div>
+      <div><span class="text-zinc-500">removes:</span> <span class="mono text-xs">{{ rec.get("removes", []) | join(", ") or "(none)" }}</span></div>
+    </div>
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase mb-2">Committee</div>
+    {% if rec.get("committee_decisions") %}
+      {% set dec = rec.committee_decisions %}
+      {% set vetoed = dec | selectattr("approved", "equalto", false) | list | length %}
+      <div class="text-sm">
+        <div>{{ dec|length }} buy(s) reviewed</div>
+        <div>{{ dec|length - vetoed }} approved · {{ vetoed }} vetoed</div>
+        <div class="text-zinc-500">
+          cost ${{ "%.4f"|format((dec | map(attribute="cost_usd") | sum) or 0) }}
+        </div>
+      </div>
+    {% else %}
+      <div class="text-zinc-500 text-sm">Committee not active for this run.</div>
+    {% endif %}
+  </div>
+
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="text-zinc-400 text-xs uppercase mb-2">Account</div>
+    {% set a = rec.get("account") or {} %}
+    <div class="text-sm space-y-1">
+      <div><span class="text-zinc-500">equity:</span> ${{ "%.2f"|format(a.get("equity") or 0) }}</div>
+      <div><span class="text-zinc-500">cash:</span> ${{ "%.2f"|format(a.get("cash") or 0) }}</div>
+      <div><span class="text-zinc-500">buying power:</span> ${{ "%.2f"|format(a.get("buying_power") or 0) }}</div>
+      <div class="text-xs text-zinc-500">{{ a.get("status") }}</div>
+    </div>
+  </div>
+</div>
+
+{% if rec.get("committee_decisions") %}
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 mb-6">
+  <div class="px-4 py-3 border-b border-zinc-800 font-semibold">Committee decisions</div>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="text-zinc-400"><tr>
+      <th class="text-left">Symbol</th><th class="text-left">Side</th><th>Verdict</th>
+      <th class="text-right">a/v/n</th><th class="text-right">cost</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for d in rec.committee_decisions %}
+      <tr>
+        <td class="mono">{{ d.symbol }}</td>
+        <td>{{ d.direction }}</td>
+        <td><span class="pill pill-{% if d.approved %}ok{% else %}err{% endif %}">{% if d.approved %}APPROVED{% else %}VETOED{% endif %}</span></td>
+        <td class="text-right mono text-xs">{{ d.n_approve }}/{{ d.n_veto }}/{{ d.n_annotate }}</td>
+        <td class="text-right mono text-xs">${{ "%.4f"|format(d.cost_usd or 0) }}</td>
+        <td class="text-right"><a href="/decisions/{{ date }}/{{ d.symbol }}?universe={{ universe }}" class="text-xs">transcript →</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 mb-6">
+  <div class="px-4 py-3 border-b border-zinc-800 font-semibold">Orders ({{ rec.get("orders", [])|length }})</div>
+  {% if rec.get("orders") %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr>
+        <th class="text-left">Symbol</th><th class="text-left">Side</th><th class="text-right">Notional</th>
+        <th class="text-left">Status</th><th class="text-left mono">Order ID</th><th class="text-left">Submitted</th>
+      </tr></thead>
+      <tbody>
+      {% for o in rec.orders %}
+        <tr>
+          <td class="mono">{{ o.symbol }}</td>
+          <td>{{ o.side }}</td>
+          <td class="text-right mono text-xs">{% if o.get("notional") %}${{ "%.2f"|format(o.notional) }}{% else %}—{% endif %}</td>
+          <td class="text-xs">{{ o.get("status") or "—" }}</td>
+          <td class="mono text-xs text-zinc-500">{{ o.get("id") or "(dryrun)" }}</td>
+          <td class="text-xs text-zinc-400">{{ o.get("submitted_at") or "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 text-sm p-4">No orders.</div>
+  {% endif %}
+</div>
+
+<div class="text-xs text-zinc-500">
+  Source record: <span class="mono">logs/m3_live/{{ universe }}/{{ date }}.json</span>
+</div>
+
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Triggers · DipDiver Ops{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-2">Triggers</h1>
+<p class="text-zinc-500 text-sm mb-4">
+  Run any scheduled job immediately. The job runs synchronously (you'll wait for the response).
+  Long jobs (m2-lite-weekly) may take several minutes. Output and exit code appear below the button.
+</p>
+
+<div class="space-y-3">
+{% for j in jobs %}
+  <div class="bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="mono text-sm">{{ j.job_id }}</div>
+        <div class="text-xs text-zinc-500">{{ j.description }}</div>
+      </div>
+      <form hx-post="/triggers/run"
+            hx-target="#result-{{ j.job_id }}"
+            hx-swap="innerHTML"
+            hx-indicator="#spinner-{{ j.job_id }}"
+            hx-disabled-elt="find button">
+        <input type="hidden" name="job_id" value="{{ j.job_id }}">
+        <button class="run-btn bg-zinc-700 hover:bg-zinc-600 px-3 py-1 rounded text-sm">
+          Run now
+        </button>
+        <span id="spinner-{{ j.job_id }}" class="htmx-indicator text-xs text-zinc-400 ml-2">running…</span>
+      </form>
+    </div>
+    <div id="result-{{ j.job_id }}"></div>
+  </div>
+{% endfor %}
+</div>
+
+<style>
+  /* HTMX spinner toggling */
+  .htmx-indicator { display: none; }
+  .htmx-request .htmx-indicator { display: inline; }
+
+  /* Disabled-while-running state for the Run-now button — covers the in-flight
+     window when the user could otherwise spam-click. hx-disabled-elt sets the
+     `disabled` attribute on the button automatically. */
+  button:disabled,
+  button[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: rgb(63 63 70) !important;  /* zinc-700 stays muted */
+  }
+  button:disabled:hover,
+  button[aria-disabled="true"]:hover {
+    background-color: rgb(63 63 70) !important;
+  }
+</style>
+
+<script>
+  /* Belt-and-suspenders client side: also set aria-disabled at request start
+     so screen readers + any old HTMX (< 1.9) still get the disabled state. */
+  document.body.addEventListener("htmx:beforeRequest", (e) => {
+    const btn = e.detail.elt && e.detail.elt.querySelector ? e.detail.elt.querySelector(".run-btn") : null;
+    if (btn) {
+      btn.setAttribute("aria-disabled", "true");
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = "Running…";
+    }
+  });
+  document.body.addEventListener("htmx:afterRequest", (e) => {
+    const btn = e.detail.elt && e.detail.elt.querySelector ? e.detail.elt.querySelector(".run-btn") : null;
+    if (btn) {
+      btn.removeAttribute("aria-disabled");
+      if (btn.dataset.originalText) {
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+    }
+  });
+</script>
+
+{% endblock %}

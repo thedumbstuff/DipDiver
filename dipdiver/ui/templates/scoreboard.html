@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Scoreboard · DipDiver Ops{% endblock %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-semibold">Scoreboard</h1>
+  <a href="/scoreboard.md" class="text-xs text-zinc-400 hover:text-white" target="_blank">View as Markdown ↗</a>
+</div>
+
+<p class="text-zinc-500 text-sm mb-6">
+  Append-only forward-eval log. One row per (date, universe, strategy).
+  See <a href="https://github.com/thedumbstuff/DipDiver/blob/main/docs/VALIDATION.md">VALIDATION.md</a>
+  for what these numbers mean and don't.
+</p>
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+  {% if rows %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr>
+        <th class="text-left">Date</th><th class="text-left">Universe</th>
+        <th class="text-left">Strategy</th>
+        <th class="text-right">Orders</th><th class="text-right">Buys</th>
+        <th class="text-right">Vetoed</th><th class="text-right">Veto%</th>
+        <th class="text-right">Realised</th><th class="text-right">Unrealised</th>
+        <th class="text-right">Equity</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><a href="/runs/{{ r.date }}?universe={{ r.universe }}" class="no-underline hover:underline">{{ r.date }}</a></td>
+          <td>{{ r.universe }}</td>
+          <td><a href="/strategies/{{ r.strategy_id }}" class="mono text-xs no-underline hover:underline">{{ r.strategy_id }}</a></td>
+          <td class="text-right">{{ r.n_orders }}</td>
+          <td class="text-right">{{ r.n_buys_reviewed }}</td>
+          <td class="text-right">{{ r.n_buys_vetoed }}</td>
+          <td class="text-right">{{ fmt_pct(r.veto_rate) }}</td>
+          <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.realised_pnl_usd) }}{% else %}—{% endif %}</td>
+          <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.unrealised_pnl_usd) }}{% else %}—{% endif %}</td>
+          <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.equity_at_close) }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 p-6 text-sm">
+      Empty scoreboard. Run <code class="mono">python scripts/m6_backfill.py</code> or trigger the nightly job from <a href="/triggers">/triggers</a>.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

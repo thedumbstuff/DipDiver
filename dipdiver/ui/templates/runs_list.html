@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Runs · DipDiver Ops{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-4">Runs</h1>
+
+<form method="get" class="mb-4 flex flex-wrap gap-2 items-center text-sm">
+  <label class="text-zinc-400">Strategy</label>
+  <select name="strategy" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+    <option value="">(all)</option>
+    {% for sid in strategy_ids %}
+      <option value="{{ sid }}" {% if sid == filter_strategy %}selected{% endif %}>{{ sid }}</option>
+    {% endfor %}
+  </select>
+  <label class="text-zinc-400 ml-2">Universe</label>
+  <select name="universe" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+    <option value="">(all)</option>
+    {% for u in universes %}
+      <option value="{{ u }}" {% if u == filter_universe %}selected{% endif %}>{{ u }}</option>
+    {% endfor %}
+  </select>
+  <button class="bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded">Apply</button>
+  {% if filter_strategy or filter_universe %}
+    <a href="/runs" class="text-xs text-zinc-400 hover:text-white">Clear</a>
+  {% endif %}
+</form>
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+  {% if rows %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400">
+        <tr><th class="text-left">Date</th><th class="text-left">Universe</th><th class="text-left">Strategy</th>
+            <th class="text-right">Orders</th><th class="text-right">Buys</th><th class="text-right">Veto%</th>
+            <th class="text-right">Realised</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.date }}</td>
+            <td>{{ r.universe }}</td>
+            <td class="mono text-xs">{{ r.strategy_id }}</td>
+            <td class="text-right">{{ r.n_orders }}</td>
+            <td class="text-right">{{ r.n_buys_reviewed }}</td>
+            <td class="text-right">{{ fmt_pct(r.veto_rate) }}</td>
+            <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.realised_pnl_usd) }}{% else %}<span class="text-zinc-600">—</span>{% endif %}</td>
+            <td class="text-right">
+              <a href="/runs/{{ r.date }}?universe={{ r.universe }}" class="text-xs">drill →</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 text-sm p-6">No runs match the filter.</div>
+  {% endif %}
+</div>
+
+{% endblock %}

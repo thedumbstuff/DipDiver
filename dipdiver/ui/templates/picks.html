@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Picks — DipDiver{% endblock %}
+{% block content %}
+<section class="space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Tomorrow's picks</h1>
+      <p class="text-sm text-zinc-400">
+        Top model-scored candidates for <span class="mono text-zinc-200">{{ universe }}</span>{% if strategy_id %} via
+        <a href="/strategies/{{ strategy_id }}" class="mono text-zinc-200">{{ strategy_id }}</a>{% endif %}.
+        Risk band: <span class="pill pill-info">{{ risk_band }}</span>
+      </p>
+    </div>
+    <form method="get" action="/picks" class="flex flex-wrap items-center gap-2 text-sm">
+      <label class="text-zinc-400" for="universe">Universe</label>
+      <select name="universe" id="universe" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+        {% for u in ("dow30", "sp500", "world_indices", "crypto", "nifty50") %}
+          <option value="{{ u }}" {% if u == universe %}selected{% endif %}>{{ u }}</option>
+        {% endfor %}
+      </select>
+      <label class="text-zinc-400" for="risk">Risk</label>
+      <select name="risk" id="risk" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1">
+        {% for b in risk_bands %}
+          <option value="{{ b }}" {% if b == risk_band %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
+      <button class="bg-emerald-700 hover:bg-emerald-600 rounded px-3 py-1">Apply</button>
+    </form>
+  </header>
+
+  {% if model_window_stale %}
+    {# The MODEL's prediction window has run out. Latest signal date is too
+       old. This is NOT fixed by signal_refresh — needs m1_retrain to roll
+       the train/valid/test windows forward. #}
+    <div class="rounded border border-red-700 bg-red-900/20 p-3 text-sm space-y-1">
+      <div>
+        🔴 <strong>Model out-of-window.</strong>
+        Latest signal date is <span class="mono">{{ picks[0].signal_date if picks else "—" }}</span>
+        ({{ "%.0f"|format(freshness_hours / 24) }} days old).
+      </div>
+      <div class="text-xs text-zinc-300">
+        Running <span class="mono">signal_refresh</span> won't fix this — it only re-runs the model on its current
+        test window. Trigger <a href="/triggers">m1_retrain</a> to roll the train/valid/test windows forward, then
+        re-run <span class="mono">signal_refresh</span>.
+      </div>
+    </div>
+  {% elif file_refresh_stale %}
+    {# Signal CSV mtime is stale — signal_refresh hasn't run recently. #}
+    <div class="rounded border border-amber-700 bg-amber-900/30 p-3 text-sm">
+      ⚠️ Signal file last regenerated <span class="mono">{{ "%.1f"|format(file_mtime_hours) }}h</span> ago —
+      trigger <a href="/triggers">signal_refresh</a> for the latest predictions.
+    </div>
+  {% endif %}
+
+  {% if research_only %}
+    <div class="rounded border border-amber-700 bg-amber-900/20 p-3 text-sm">
+      🔬 <strong>Research-only universe.</strong> <span class="mono">{{ universe }}</span> cannot
+      be executed live via the current broker adapter. Picks are shown for analysis but no
+      orders will be submitted by <span class="mono">nightly_run</span> for this universe.
+    </div>
+  {% endif %}
+
+  {% if no_signal %}
+    <div class="rounded border border-zinc-700 bg-zinc-900/40 p-4 text-sm space-y-2">
+      <p class="font-medium">No signal CSV found for this universe.</p>
+      <p class="text-zinc-400">
+        Run <a href="/triggers">signal_refresh</a> after the M1 model is trained
+        (<code class="mono">python scripts/m1_run.py --m1-config {{ universe }}_lightgbm.yaml</code>),
+        then come back.
+      </p>
+      <p class="text-zinc-500 text-xs">Expected path: <span class="mono">{{ signal_path or "—" }}</span></p>
+    </div>
+  {% else %}
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {% for p in picks %}
+        <article class="rounded border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
+          <header class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold mono">
+              <span class="text-zinc-500 text-sm font-normal">#{{ p.rank }}</span>
+              {{ p.symbol }}
+            </h2>
+            <div class="flex items-center gap-1">
+              {% if p.on_watchlist %}<span class="pill pill-info" title="On watchlist">⭐</span>{% endif %}
+              {% if p.decision == "approved" %}
+                <span class="pill pill-ok">APPROVED</span>
+              {% elif p.decision == "vetoed" %}
+                <span class="pill pill-err">VETOED</span>
+              {% else %}
+                <span class="pill pill-muted">no committee</span>
+              {% endif %}
+            </div>
+          </header>
+
+          <dl class="text-sm grid grid-cols-2 gap-y-1">
+            <dt class="text-zinc-400" title="Raw model score from M1">Score</dt>
+            <dd class="mono text-right">{{ "%.4f"|format(p.score) }}</dd>
+
+            <dt class="text-zinc-400" title="Suggested allocation = risk band weight × equity">Weight</dt>
+            <dd class="mono text-right">{{ "%.1f"|format(p.weight_pct) }}%</dd>
+
+            {% if p.conviction is not none %}
+              <dt class="text-zinc-400" title="Mean persona confidence on this verdict">Conviction</dt>
+              <dd class="text-right">
+                {% if p.conviction >= 0.7 %}
+                  <span class="pill pill-ok">{{ "%.0f"|format(p.conviction*100) }}%</span>
+                {% elif p.conviction >= 0.4 %}
+                  <span class="pill pill-warn">{{ "%.0f"|format(p.conviction*100) }}%</span>
+                {% else %}
+                  <span class="pill pill-err">{{ "%.0f"|format(p.conviction*100) }}%</span>
+                {% endif %}
+              </dd>
+            {% endif %}
+
+            <dt class="text-zinc-400" title="Date of the model signal driving this pick">Signal date</dt>
+            <dd class="mono text-right text-zinc-300">{{ p.signal_date or "—" }}</dd>
+          </dl>
+
+          {% if p.summary_rationale %}
+            <details class="text-sm">
+              <summary class="cursor-pointer text-zinc-400 hover:text-white">Rationale</summary>
+              <p class="mt-1 text-zinc-300">{{ p.summary_rationale }}</p>
+            </details>
+          {% endif %}
+
+          {% if p.feedback_penalty_applied %}
+            <p class="text-xs text-zinc-500">↘ score adjusted by recent operator feedback</p>
+          {% endif %}
+
+          <div class="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            {% if not p.on_watchlist %}
+            <form method="post" action="/watchlist/add" class="inline-block">
+              <input type="hidden" name="symbol" value="{{ p.symbol }}">
+              <input type="hidden" name="universe" value="{{ universe }}">
+              <button class="hover:text-emerald-400" title="Add to watchlist">⭐ watch</button>
+            </form>
+            {% else %}
+            <form method="post" action="/watchlist/remove" class="inline-block">
+              <input type="hidden" name="symbol" value="{{ p.symbol }}">
+              <input type="hidden" name="universe" value="{{ universe }}">
+              <button class="hover:text-amber-400" title="Remove from watchlist">remove ⭐</button>
+            </form>
+            {% endif %}
+            <a href="/decisions/{{ p.signal_date }}/{{ p.symbol }}?universe={{ universe }}" class="hover:text-emerald-400">decision detail</a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    <p class="text-xs text-zinc-500 mt-4">
+      Sizing: per-pick weight is fixed by risk band (aggressive 5%, balanced 3%, conservative 1%) — adjust on <a href="/config">/config</a>.
+      Conviction badges shown only when the committee has reviewed the same symbol on the most recent run.
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

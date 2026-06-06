@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ strategy_id }} · Strategies{% endblock %}
+{% block content %}
+
+<a href="/strategies" class="text-xs text-zinc-400 hover:text-white">← strategies</a>
+<h1 class="text-2xl font-semibold mt-2 mb-4 mono">{{ strategy_id }}</h1>
+
+{% if summary %}
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 text-sm">
+  <div class="bg-zinc-900 rounded p-3 border border-zinc-800"><div class="text-zinc-500 text-xs">days</div><div class="text-xl">{{ summary.days }}</div></div>
+  <div class="bg-zinc-900 rounded p-3 border border-zinc-800"><div class="text-zinc-500 text-xs">orders</div><div class="text-xl">{{ summary.n_orders }}</div></div>
+  <div class="bg-zinc-900 rounded p-3 border border-zinc-800"><div class="text-zinc-500 text-xs">buys reviewed</div><div class="text-xl">{{ summary.n_reviewed }}</div></div>
+  <div class="bg-zinc-900 rounded p-3 border border-zinc-800"><div class="text-zinc-500 text-xs">veto rate</div><div class="text-xl">{{ summary.veto_rate_fmt }}</div></div>
+  <div class="bg-zinc-900 rounded p-3 border border-zinc-800"><div class="text-zinc-500 text-xs">committee cost</div><div class="text-xl mono">{{ summary.cost_fmt }}</div></div>
+</div>
+{% endif %}
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+  <div class="px-4 py-3 border-b border-zinc-800 font-semibold">Per-day log</div>
+  {% if rows %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr>
+        <th class="text-left">Date</th><th class="text-right">Orders</th>
+        <th class="text-right">Buys</th><th class="text-right">Reviewed</th>
+        <th class="text-right">Vetoed</th><th class="text-right">Veto %</th>
+        <th class="text-right">Realised</th><th class="text-right">Unrealised</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.date }}</td>
+          <td class="text-right">{{ r.n_orders }}</td>
+          <td class="text-right">{{ r.n_buys_proposed }}</td>
+          <td class="text-right">{{ r.n_buys_reviewed }}</td>
+          <td class="text-right">{{ r.n_buys_vetoed }}</td>
+          <td class="text-right">{{ fmt_pct(r.veto_rate) }}</td>
+          <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.realised_pnl_usd) }}{% else %}—{% endif %}</td>
+          <td class="text-right">{% if r.pnl %}{{ fmt_currency(r.pnl.unrealised_pnl_usd) }}{% else %}—{% endif %}</td>
+          <td class="text-right"><a href="/runs/{{ r.date }}?universe={{ r.universe }}" class="text-xs">drill →</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 p-4 text-sm">No runs for this strategy.</div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -6,7 +6,7 @@ Weeks are nominal. Real elapsed time depends on how hard reproduction goes.
 
 ## Pipeline at a glance
 
-Each milestone produces a typed artefact that feeds the next. Status as of 2026-06-04: M0–M3 + M5 done, M2 pivoted from RD-Agent to M2-lite, M4 deferred, M6 not started, M7 gated.
+Each milestone produces a typed artefact that feeds the next. Status as of 2026-06-06: **M0–M3 + M5 + M6 (all sub-milestones) + M8–M14 shipped**, M2 pivoted from RD-Agent to M2-lite, M4 deferred. M7 (live capital) remains gated on 60+ days of clean paper forward-eval — the gate is now enforced in code via `dipdiver/adapters/alpaca/gate.LiveTradingGate`. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for what M9–M14 mean.
 
 ```mermaid
 flowchart TD
@@ -16,8 +16,15 @@ flowchart TD
     M3["<b>M3 · Execution</b> ✅<br/>Lean backtest + Alpaca paper<br/>shared TopkDropoutStrategy<br/>CAR 18.85% vs M1 in parity test"]
     M4["<b>M4 · Broker breadth</b> ⏸<br/>Zerodha + Indian brokers<br/>via Lean IBrokerage<br/><i>(deferred — US paper sufficient for now)</i>"]
     M5["<b>M5 · Risk-veto committee</b> ✅<br/>4-persona LLM panel<br/>(fundamental, technical, risk, value)<br/>risk has single-vote veto power"]
-    M6["<b>M6 · Forward-eval harness</b> ⏳<br/>Nightly run + JSONL scoreboard<br/>veto-regret tracking<br/>sanity-check strategies"]
-    M7(["<b>M7 · Live capital</b> 🚫<br/>Gated on ≥60d green scoreboard<br/>Sharpe&gt;1, MDD&lt;10%, kill-switch tested"])
+    M6["<b>M6 · Forward-eval harness</b> ✅<br/>M6.1 scoreboard + backfill + render<br/>M6.2 pnl_settle writer (Alpaca portfolio_history)<br/>M6.3 veto_backfill writer (T+5 counterfactuals)"]
+    M7(["<b>M7 · Live capital</b> 🚫<br/>Gated by LiveTradingGate.check()<br/>Sharpe&gt;1, MDD&lt;10%, hit_rate&gt;0.5, 60d eval<br/>+ DIPDIVER_LIVE_TRADING=true env"])
+    M8["<b>M8 · Ops UI + automation</b> ✅<br/>FastAPI + APScheduler · 37 routes live<br/>kill-switch + LiveGateAudit"]
+    M9["<b>M9 · /picks suggestion board</b> ✅<br/>Forward-looking top-N w/ conviction +<br/>weight + rationale; mobile-first cards"]
+    M10["<b>M10 · Model lifecycle</b> ✅<br/>roll_window() + m1_retrain job<br/>ModelVersion table + age badges"]
+    M11["<b>M11 · Live-trading safety gate</b> ✅<br/>LiveTradingGate + AlpacaClient(mode='live')<br/>SUPPORTED_UNIVERSES + kill_switch.sh"]
+    M12["<b>M12 · Operator feedback loop</b> ✅<br/>thumbs/override/execution + watchlist<br/>+ /persona-accuracy scorecards"]
+    M13["<b>M13 · Multi-universe</b> ✅<br/>SP500 universe + Universe registry API<br/>+ live_executable flag"]
+    M14["<b>M14 · Polish</b> ✅<br/>Sortino/Calmar/benchmark/attribution<br/>+ /strategies-compare A/B"]
 
     M0 --> M1
     M1 -->|"locked metrics<br/>+ signals.csv"| M2
@@ -29,6 +36,9 @@ flowchart TD
     M5 -->|"verdicts<br/>+ rationales"| M6
     M4 -.->|"more brokers<br/>plug in here"| M3
     M6 -->|"60d clean<br/>+ all metrics in spec"| M7
+    M8 -.->|"wraps + schedules"| M6
+    M8 -.->|"surfaces decisions"| M5
+    M8 -.->|"triggers runs"| M3
 
     classDef done fill:#1f6f3a,stroke:#0a3,stroke-width:2px,color:#fff
     classDef defer fill:#665,stroke:#998,stroke-width:1px,color:#fff
@@ -36,7 +46,10 @@ flowchart TD
     classDef gate fill:#5a1f1f,stroke:#a00,stroke-width:2px,color:#fff
     class M0,M1,M2,M3,M5 done
     class M4 defer
-    class M6 todo
+    classDef partial fill:#3a4a7f,stroke:#669,stroke-width:2px,color:#fff
+    classDef planned fill:#444,stroke:#888,stroke-width:1px,stroke-dasharray:5 5,color:#fff
+    class M6 partial
+    class M8 done
     class M7 gate
 ```
 
@@ -189,5 +202,5 @@ See [`VALIDATION.md`](VALIDATION.md) for full validation methodology and rationa
 - Options or futures strategies (equities and spot crypto only).
 - HFT or sub-minute strategies (Lean can do it; the agentic loop can't).
 - Multi-account aggregation.
-- A web UI. The scoreboard is the UI.
+- A customer-facing web product. The public scoreboard is the public UI. An **operator console** for our own ops workflow is in scope (see [M8](milestones/M8_ops_ui.md)) — it's a tool for running DipDiver, not a tool to sell.
 - A hosted SaaS. This is a code repo, not a product.

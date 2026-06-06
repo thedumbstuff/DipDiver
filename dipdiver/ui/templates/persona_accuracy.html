@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Persona accuracy — DipDiver{% endblock %}
+{% block content %}
+<section class="space-y-4">
+  <header>
+    <h1 class="text-2xl font-semibold">Persona accuracy</h1>
+    <p class="text-sm text-zinc-400">
+      Did the committee's vetoes save money? Did operator overrides catch alpha the committee missed?
+    </p>
+  </header>
+
+  {% if cards %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for c in cards %}
+        <article class="bg-zinc-900 rounded p-4 border border-zinc-800 space-y-2">
+          <header class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold mono">{{ c.persona }}</h2>
+            {% if c.veto_regret_avg_pct > 0.005 %}
+              <span class="pill pill-err" title="Vetoes cost money on average">over-vetoing</span>
+            {% elif c.veto_regret_avg_pct < -0.005 %}
+              <span class="pill pill-ok" title="Vetoes saved money on average">good calls</span>
+            {% else %}
+              <span class="pill pill-muted">neutral</span>
+            {% endif %}
+          </header>
+
+          <dl class="text-sm grid grid-cols-2 gap-y-1">
+            <dt class="text-zinc-400">Vetoes with outcome</dt>
+            <dd class="text-right mono">{{ c.vetoes_with_outcome }}</dd>
+
+            <dt class="text-zinc-400" title="Mean counterfactual P&L of vetoed buys">Veto regret (avg)</dt>
+            <dd class="text-right mono">
+              {% if c.veto_regret_avg_pct > 0 %}+{% endif %}{{ "%.2f"|format(c.veto_regret_avg_pct * 100) }}%
+            </dd>
+
+            <dt class="text-zinc-400">Operator overrides</dt>
+            <dd class="text-right mono">{{ c.overrides }}</dd>
+
+            {% if c.overrides > 0 %}
+              <dt class="text-zinc-400">Override wins</dt>
+              <dd class="text-right mono">{{ c.override_wins }} / {{ c.overrides }}</dd>
+            {% endif %}
+          </dl>
+
+          {% if c.examples %}
+            <details class="text-xs">
+              <summary class="cursor-pointer text-zinc-500">Examples</summary>
+              <ul class="mt-1 space-y-1">
+                {% for ex in c.examples %}
+                  <li>
+                    <span class="mono">{{ ex.symbol }}</span> on {{ ex.date }}:
+                    {% if ex.regret_pct > 0 %}
+                      <span class="text-red-400">+{{ "%.2f"|format(ex.regret_pct * 100) }}%</span> (veto cost money)
+                    {% else %}
+                      <span class="text-emerald-400">{{ "%.2f"|format(ex.regret_pct * 100) }}%</span> (veto saved money)
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-zinc-500 text-sm">
+      No committee vetoes with materialised T+5 outcomes yet. Run <a href="/triggers">veto_backfill</a> a few days after a committee veto to populate this page.
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

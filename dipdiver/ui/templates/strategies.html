@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Strategies · DipDiver Ops{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-4">Strategies</h1>
+
+<div class="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+  {% if strategies %}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-zinc-400"><tr>
+        <th class="text-left">Strategy</th><th class="text-left">Universe</th>
+        <th class="text-right">Days</th><th class="text-right">Orders</th>
+        <th class="text-right">Buys proposed</th><th class="text-right">Reviewed</th>
+        <th class="text-right">Vetoed</th><th class="text-right">Veto rate</th>
+        <th class="text-right">Committee cost</th><th class="text-left">Latest</th>
+      </tr></thead>
+      <tbody>
+        {% for s in strategies %}
+          <tr>
+            <td><a href="/strategies/{{ s.strategy_id }}" class="mono text-xs no-underline hover:underline">{{ s.strategy_id }}</a></td>
+            <td>{{ s.universe }}</td>
+            <td class="text-right">{{ s.days }}</td>
+            <td class="text-right">{{ s.n_orders }}</td>
+            <td class="text-right">{{ s.n_proposed }}</td>
+            <td class="text-right">{{ s.n_reviewed }}</td>
+            <td class="text-right">{{ s.n_vetoed }}</td>
+            <td class="text-right">{{ s.veto_rate_fmt }}</td>
+            <td class="text-right mono text-xs">{{ s.cost_fmt }}</td>
+            <td class="text-zinc-400 text-xs">{{ s.latest }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <div class="text-zinc-500 p-6 text-sm">No strategies have run yet.</div>
+  {% endif %}
+</div>
+
+{% endblock %}

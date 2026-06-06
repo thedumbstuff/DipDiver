@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Watchlist — DipDiver{% endblock %}
+{% block content %}
+<section class="space-y-4">
+  <header class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-semibold">Watchlist</h1>
+      <p class="text-sm text-zinc-400">
+        Symbols you want surfaced on <a href="/picks?universe={{ universe }}">/picks</a> even when they fall outside top-N.
+      </p>
+    </div>
+    <form method="post" action="/watchlist/add" class="flex flex-wrap items-end gap-2 text-sm">
+      <label class="text-zinc-400 flex flex-col">Symbol
+        <input name="symbol" required class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 mono w-24" placeholder="AAPL">
+      </label>
+      <label class="text-zinc-400 flex flex-col">Universe
+        <input name="universe" value="{{ universe }}" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 mono w-32">
+      </label>
+      <label class="text-zinc-400 flex flex-col">Notes
+        <input name="notes" class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 w-64" placeholder="why am I watching this?">
+      </label>
+      <button class="bg-emerald-700 hover:bg-emerald-600 rounded px-3 py-1">Add</button>
+    </form>
+  </header>
+
+  {% if entries %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-zinc-400 text-left">
+          <tr>
+            <th>Symbol</th>
+            <th>Notes</th>
+            <th>Added</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+            <tr>
+              <td class="mono">{{ e.symbol }}</td>
+              <td class="text-zinc-300">{{ e.notes or "—" }}</td>
+              <td class="mono text-zinc-500">{{ e.added }}</td>
+              <td>
+                <form method="post" action="/watchlist/remove" class="inline-block">
+                  <input type="hidden" name="symbol" value="{{ e.symbol }}">
+                  <input type="hidden" name="universe" value="{{ universe }}">
+                  <button class="text-xs text-zinc-500 hover:text-red-400">remove</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-zinc-500 text-sm">No symbols watched yet for <span class="mono">{{ universe }}</span>.</p>
+  {% endif %}
+</section>
+{% endblock %}
