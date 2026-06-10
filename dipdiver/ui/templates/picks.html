@@ -71,6 +71,69 @@
       <p class="text-zinc-500 text-xs">Expected path: <span class="mono">{{ signal_path or "—" }}</span></p>
     </div>
   {% else %}
+    {% if top_pick %}
+      {# ── Good pick of the day ─────────────────────────────────────────── #}
+      <article id="pick-of-the-day"
+               class="rounded-lg border border-emerald-700 bg-emerald-900/15 p-4 space-y-3">
+        <header class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-baseline gap-3">
+            <span class="text-xs uppercase tracking-wider text-emerald-400">Good pick of the day</span>
+            <h2 class="text-3xl font-bold mono">{{ top_pick.symbol }}</h2>
+            {% if top_pick.decision == "approved" %}
+              <span class="pill pill-ok">committee approved</span>
+            {% else %}
+              <span class="pill pill-muted">no committee review</span>
+            {% endif %}
+          </div>
+          <div class="text-right text-sm">
+            <div class="text-zinc-400">Score <span class="mono text-zinc-100">{{ "%.4f"|format(top_pick.score) }}</span></div>
+            {% if top_pick.conviction is not none %}
+              <div class="text-zinc-400">Conviction <span class="mono text-zinc-100">{{ "%.0f"|format(top_pick.conviction*100) }}%</span></div>
+            {% endif %}
+          </div>
+        </header>
+
+        {% if top_pick.timing %}
+          {% set t = top_pick.timing %}
+          <div class="grid gap-3 sm:grid-cols-3 text-sm">
+            <div class="rounded border border-zinc-800 bg-zinc-900/60 p-3">
+              <div class="text-xs text-zinc-400 uppercase tracking-wide">Session</div>
+              <div class="mono text-lg">{{ t.session_date }}</div>
+              <div class="text-xs text-zinc-500">{{ t.exchange }} · {{ t.tz_name }}
+                {% if t.is_open_now %}<span class="pill pill-ok ml-1">open now</span>{% endif %}
+              </div>
+            </div>
+            <div class="rounded border border-zinc-800 bg-zinc-900/60 p-3">
+              <div class="text-xs text-zinc-400 uppercase tracking-wide">Suggested entry</div>
+              <div class="mono text-lg text-emerald-300">{{ t.entry_local }}</div>
+              <div class="text-xs text-zinc-500">local · {{ t.entry_utc }} UTC</div>
+            </div>
+            <div class="rounded border border-zinc-800 bg-zinc-900/60 p-3">
+              <div class="text-xs text-zinc-400 uppercase tracking-wide">Suggested exit</div>
+              <div class="mono text-lg text-amber-300">{{ t.exit_local }}</div>
+              <div class="text-xs text-zinc-500">local · {{ t.exit_utc }} UTC</div>
+            </div>
+          </div>
+          {% if t.note %}
+            <p class="text-xs text-zinc-400">{{ t.note }}</p>
+          {% endif %}
+        {% endif %}
+
+        {% if top_pick.summary_rationale %}
+          <p class="text-sm text-zinc-300">{{ top_pick.summary_rationale }}</p>
+        {% endif %}
+        <p class="text-xs text-zinc-500">
+          Entry waits 15 min after the open for the auction to settle; exit is 15 min before the close
+          so no position is carried overnight. Times are suggestions — exchange holidays aren't modeled, so confirm
+          the market is open. Suggested allocation: <span class="mono">{{ "%.1f"|format(top_pick.weight_pct) }}%</span> of equity ({{ risk_band }}).
+        </p>
+      </article>
+    {% else %}
+      <div class="rounded border border-zinc-700 bg-zinc-900/40 p-4 text-sm">
+        🛑 <strong>No good pick today.</strong> The committee vetoed every candidate for
+        <span class="mono">{{ universe }}</span> — sitting out is the suggestion. Review the cards below for details.
+      </div>
+    {% endif %}
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {% for p in picks %}
         <article class="rounded border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
@@ -113,6 +176,17 @@
 
             <dt class="text-zinc-400" title="Date of the model signal driving this pick">Signal date</dt>
             <dd class="mono text-right text-zinc-300">{{ p.signal_date or "—" }}</dd>
+
+            {% if p.timing %}
+              <dt class="text-zinc-400" title="Suggested entry/exit in the exchange's local time ({{ p.timing.tz_name }})">
+                Enter / exit
+              </dt>
+              <dd class="mono text-right" title="{{ p.timing.exchange }} session {{ p.timing.session_date }} · {{ p.timing.entry_utc }}–{{ p.timing.exit_utc }} UTC">
+                <span class="text-emerald-300">{{ p.timing.entry_local }}</span>
+                <span class="text-zinc-500">→</span>
+                <span class="text-amber-300">{{ p.timing.exit_local }}</span>
+              </dd>
+            {% endif %}
           </dl>
 
           {% if p.summary_rationale %}

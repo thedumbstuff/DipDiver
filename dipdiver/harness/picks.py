@@ -19,6 +19,7 @@ from typing import Iterable
 
 from dipdiver._paths import repo_root
 from dipdiver.harness.render import FusedDayRow
+from dipdiver.harness.sessions import TimingGuidance, entry_exit_for
 from dipdiver.harness.scoreboard import (
     CommitteeVerdictSummary,
     DaySubmittedEvent,
@@ -60,6 +61,9 @@ class EnrichedPick:
     summary_rationale: str | None = None
     feedback_penalty_applied: bool = False
     on_watchlist: bool = False
+    # Day-trading guidance: when to enter/exit on the next actionable
+    # session of this symbol's exchange. Set by attach_timing().
+    timing: TimingGuidance | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -357,3 +361,48 @@ def merge_watchlist(
             on_watchlist=True,
         ))
     return picks
+
+
+# ---------------------------------------------------------------------------
+# Day-trading timing + pick of the day (Stage 6)
+# ---------------------------------------------------------------------------
+
+
+def attach_timing(
+    picks: list[EnrichedPick],
+    *,
+    universe: str,
+    now_utc: datetime | None = None,
+) -> list[EnrichedPick]:
+    """Attach entry/exit guidance per pick for its exchange's next session.
+
+    world_indices picks resolve per symbol (each index trades on its home
+    exchange); everything else resolves at universe level. Failures degrade
+    to timing=None — the board still renders, just without times.
+    """
+    for p in picks:
+        try:
+            p.timing = entry_exit_for(universe, p.symbol, now_utc=now_utc)
+        except Exception as e:  # noqa: BLE001
+            log.warning("timing guidance failed for %s/%s: %s", universe, p.symbol, e)
+            p.timing = None
+    return picks
+
+
+def pick_of_the_day(picks: list[EnrichedPick]) -> EnrichedPick | None:
+    """The single headline suggestion.
+
+    Preference order: best-ranked committee-APPROVED pick, then best-ranked
+    pick with no committee verdict. A vetoed pick is never the pick of the
+    day, and watchlist-only fillers (score 0, appended by merge_watchlist)
+    don't qualify. Returns None when nothing qualifies — the board says so
+    instead of pushing a bad suggestion.
+    """
+    candidates = [p for p in picks if not (p.on_watchlist and p.score == 0.0)]
+    approved = [p for p in candidates if p.decision == "approved"]
+    if approved:
+        return min(approved, key=lambda p: p.rank)
+    undecided = [p for p in candidates if p.decision is None]
+    if undecided:
+        return min(undecided, key=lambda p: p.rank)
+    return None

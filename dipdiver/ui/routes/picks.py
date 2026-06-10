@@ -11,9 +11,11 @@ from fastapi.responses import HTMLResponse
 
 from dipdiver.harness.picks import (
     apply_feedback_penalty,
+    attach_timing,
     enrich_with_committee,
     load_next_signal_forecast,
     merge_watchlist,
+    pick_of_the_day,
     signal_csv_path,
     signal_file_mtime_hours,
     signal_freshness_hours,
@@ -39,6 +41,12 @@ def _resolve_strategy_for(universe: str, prefer_committee: bool = True):
         if s.enabled and s.strategy_id.startswith(universe)
     ]
     if not candidates:
+        # No configured strategy for this universe (research universes like
+        # nifty50 / world_indices usually aren't in ui_config.yaml). Fall back
+        # to the universe's default signal CSV so the board still renders.
+        fallback_stem = f"{universe}_lightgbm"
+        if signal_csv_path(fallback_stem).exists():
+            return None, fallback_stem
         return None, None
     if prefer_committee:
         for s in candidates:
@@ -99,6 +107,12 @@ async def picks_page(
     )
     enriched = size_by_risk_band(enriched, band)
     enriched = merge_watchlist(enriched, universe=universe, top_n=top_n)
+    enriched = attach_timing(enriched, universe=universe)
+
+    # Headline suggestion — best approved (or undecided) pick. None when the
+    # committee vetoed everything; the template explains rather than pushing
+    # a vetoed name.
+    top_pick = pick_of_the_day(enriched)
 
     # Two distinct staleness concepts (see signal_freshness_hours vs
     # signal_file_mtime_hours docstrings):
@@ -127,6 +141,7 @@ async def picks_page(
         risk_band=band,
         strategy_id=sid,
         picks=enriched,
+        top_pick=top_pick,
         freshness_hours=freshness,
         file_mtime_hours=file_mtime_hours,
         model_window_stale=model_window_stale,
