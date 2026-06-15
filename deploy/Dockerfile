@@ -20,8 +20,13 @@ COPY pyproject.toml README.md LICENSE ./
 COPY dipdiver ./dipdiver
 COPY scripts ./scripts
 
+# brain extra (qlib/lightgbm/torch/yfinance) enables in-container training —
+# the /config "Add market" onboarding and real m1_retrain runs. It is BIG
+# (torch pulls CUDA wheels, several GB). For a leaner CPU-only image, install
+# torch first from https://download.pytorch.org/whl/cpu and drop it from the
+# extra.
 RUN pip install --upgrade pip wheel && \
-    pip install --prefix=/install ".[ui,m2,m3]"
+    pip install --prefix=/install ".[ui,m2,m3,brain]"
 
 # ---------------------------------------------------------------------------
 
@@ -43,7 +48,7 @@ COPY --from=build /install /usr/local
 COPY --from=build /build /app
 
 # Persistent state lives outside the image so it survives container rebuilds.
-RUN mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets}
+RUN mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data}
 
 EXPOSE 8765
 

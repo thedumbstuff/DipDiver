@@ -18,8 +18,10 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      DIPDIVER_UI_HOST: 127.0.0.1
-      DIPDIVER_UI_PORT: 8765
+      # Default binds to localhost (Tailscale/reverse-proxy exposes it).
+      # For LAN access (e.g. home-laptop deploy) set DIPDIVER_UI_HOST=0.0.0.0.
+      DIPDIVER_UI_HOST: ${DIPDIVER_UI_HOST:-127.0.0.1}
+      DIPDIVER_UI_PORT: ${DIPDIVER_UI_PORT:-8765}
       DIPDIVER_UI_DATA_ROOT: /var/lib/dipdiver
       DIPDIVER_UI_LOG_LEVEL: INFO
       # Optional Telegram alerts. Leave unset to disable.
@@ -28,6 +30,10 @@ services:
     volumes:
       # All UI state lives under this host path. Survives container rebuild.
       - /var/lib/dipdiver:/var/lib/dipdiver
+      # Qlib stores + signals CSVs are written repo-relative (/app/data) by
+      # the fetch/train/export pipeline ("Add market", m1_retrain,
+      # signal_refresh). Mount them out so onboarded markets survive rebuilds.
+      - /var/lib/dipdiver/data:/app/data
       # Mount the broker keys + LLM keys read-only at the path the app expects.
       - /var/lib/dipdiver/secrets/.env.m2:/app/.env.m2:ro
     healthcheck:
