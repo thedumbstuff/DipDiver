@@ -91,6 +91,14 @@ where = ["."]
 include = ["dipdiver*"]
 exclude = ["tests*", "notebooks*"]
 
+# Non-Python runtime data that MUST ship in the wheel. Without this a real
+# `pip install` (e.g. the Docker image) omits the Jinja templates and the UI
+# 500s with TemplateNotFound. Editable/dev installs read these from the source
+# tree directly, so the gap only shows up in a built/installed package.
+[tool.setuptools.package-data]
+"dipdiver.ui" = ["templates/*.html", "static/**/*"]
+"dipdiver.brain.baselines" = ["configs/*.yaml", "locked/*.json"]
+
 # ---------------------------------------------------------------------------
 # Tooling
 # ---------------------------------------------------------------------------

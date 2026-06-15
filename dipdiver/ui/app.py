@@ -51,6 +51,21 @@ _TEMPLATE_DIR = _THIS_DIR / "templates"
 _STATIC_DIR = _THIS_DIR / "static"
 
 
+# Defensive fallback: if the package was installed without its bundled data
+# (a wheel missing the package-data html), the templates dir next to this file
+# is empty and every page 500s with TemplateNotFound. Fall back to the source
+# tree at repo_root() (e.g. /app in the Docker image), which always has them.
+if not _TEMPLATE_DIR.is_dir() or not any(_TEMPLATE_DIR.glob("*.html")):
+    try:
+        _alt = _REPO / "dipdiver" / "ui" / "templates"
+        if _alt.is_dir():
+            _TEMPLATE_DIR = _alt
+            _STATIC_DIR = _REPO / "dipdiver" / "ui" / "static"
+            log.warning("templates not bundled in package; using source tree %s", _TEMPLATE_DIR)
+    except Exception:  # never let template resolution crash app import
+        pass
+
+
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 
