@@ -1,0 +1,20 @@
+{
+  "annualised_return": 0.21392839595030474,
+  "annualised_volatility": 0.16309533848806354,
+  "benchmark_annualised_return": 0.19409026205539703,
+  "config_hash": "70b84e84e73a19db",
+  "config_name": "sp500_lightgbm",
+  "excess_return": 0.01983813389490771,
+  "git_sha": "97637ad",
+  "hit_rate": 0.5717131474103586,
+  "max_drawdown": -0.18153628014290102,
+  "model": "lightgbm",
+  "n_trades": 501,
+  "qlib_version": "0.9.7",
+  "run_timestamp_utc": "2026-06-10T07:48:37+00:00",
+  "sharpe": 1.3116769487925097,
+  "test_end": "2025-12-31",
+  "test_start": "2024-01-01",
+  "turnover": 97.18672859754427,
+  "universe": "sp500"
+}

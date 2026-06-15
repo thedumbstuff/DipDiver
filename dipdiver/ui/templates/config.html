@@ -66,6 +66,46 @@
   </div>
 </form>
 
+<div class="mt-8 bg-zinc-900 rounded-lg p-4 border border-zinc-800">
+  <h2 class="text-lg font-semibold mb-2">Add market</h2>
+  <p class="text-xs text-zinc-500 mb-3">
+    One-click onboarding: fetch data &rarr; train + lock the M1 baseline (gates: sharpe &ge; 0.5,
+    max DD &le; 30%, hit rate &ge; 0.45) &rarr; export signals &rarr; enable the nightly strategy.
+    Runs in the background — progress appears below. Fetching and training can take many minutes;
+    a model that fails the gates is recorded on <a href="/models" class="underline">/models</a> but NOT enabled.
+  </p>
+  <form hx-post="/config/markets/add"
+        hx-target="#market-onboard-result"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button"
+        class="flex flex-wrap items-end gap-4 text-sm">
+    <label>
+      <div class="text-zinc-400 text-xs mb-1">Universe</div>
+      <select name="universe" class="bg-zinc-950 border border-zinc-700 rounded p-1 mono">
+        {% for u in universes %}
+          <option value="{{ u.key }}">
+            {{ u.key }} ({{ u.size }} · {{ "live" if u.live_executable else "research-only" }}){{ " ✓ configured" if u.configured }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <div class="text-zinc-400 text-xs mb-1">Model</div>
+      <select name="model" class="bg-zinc-950 border border-zinc-700 rounded p-1 mono">
+        {% for mk in model_kinds %}
+          <option value="{{ mk }}">{{ mk }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="flex items-center gap-2 pb-1">
+      <input type="checkbox" name="committee_variant" checked>
+      <span class="text-xs text-zinc-400">also add committee variant (A/B)</span>
+    </label>
+    <button class="bg-green-700 hover:bg-green-600 px-4 py-1.5 rounded text-sm font-semibold">Add market</button>
+  </form>
+  <div id="market-onboard-result"></div>
+</div>
+
 {% if audit %}
 <div class="mt-8 bg-zinc-900 rounded-lg p-4 border border-zinc-800">
   <h2 class="text-lg font-semibold mb-2">Recent saves</h2>

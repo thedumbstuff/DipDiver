@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import json
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 from dipdiver._paths import repo_root
@@ -49,8 +49,8 @@ def time_ago(ts: datetime | None) -> str:
     if ts is None:
         return "—"
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    delta = datetime.now(timezone.utc) - ts
+        ts = ts.replace(tzinfo=UTC)
+    delta = datetime.now(UTC) - ts
     secs = int(delta.total_seconds())
     if secs < 60:
         return f"{secs}s ago"
@@ -75,7 +75,7 @@ def _current_path(request: Any) -> str:
     """Extract the current URL path for active-nav detection."""
     try:
         return str(request.url.path) if hasattr(request, "url") else "/"
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "/"
 
 
@@ -96,6 +96,54 @@ def nav_active(current_path: str, link_path: str) -> bool:
     if cp == link_path:
         return True
     return cp.startswith(link_path + "/")
+
+
+def job_running_fragment(log_id: int, job_id: str, summary: str = "") -> str:
+    """Self-replacing HTMX fragment: polls /triggers/status/{log_id} until the
+    background run finishes. `summary` carries live stage progress (the job
+    updates its JobLog row mid-run via the run_adhoc progress callback).
+    """
+    progress = (
+        f'<div class="text-xs text-zinc-300 mt-1">{html.escape(summary)}</div>' if summary else ""
+    )
+    return f"""
+    <div class="mt-2"
+         hx-get="/triggers/status/{log_id}"
+         hx-trigger="load delay:2s"
+         hx-swap="outerHTML">
+      <span class="pill pill-warn">running</span>
+      <span class="text-xs text-zinc-400 ml-2">job_id={html.escape(job_id)} · run #{log_id} · auto-refreshing…</span>
+      {progress}
+    </div>
+    """
+
+
+def job_finished_fragment(row: Any) -> str:
+    """Terminal fragment rendered from a finished JobLog row."""
+    rc = row.exit_code if row.exit_code is not None else (0 if row.status == "success" else 1)
+    status_class = "pill-ok" if row.status == "success" else "pill-err"
+    detail = row.error if row.status == "error" else row.summary
+    duration = ""
+    if row.finished_utc is not None and row.started_utc is not None:
+        secs = (row.finished_utc - row.started_utc).total_seconds()
+        duration = f" · took {secs:.0f}s"
+    body = f'<pre class="mt-2 text-xs">{html.escape(detail)}</pre>' if detail else ""
+    return f"""
+    <div class="mt-2">
+      <span class="pill {status_class}">rc={rc}</span>
+      <span class="text-xs text-zinc-400 ml-2">job_id={html.escape(row.job_id)} · run #{row.id}{duration}</span>
+    </div>
+    {body}
+    """
+
+
+def job_busy_fragment(message: str) -> str:
+    return f"""
+    <div class="mt-2">
+      <span class="pill pill-warn">busy</span>
+      <span class="text-xs text-zinc-400 ml-2">{html.escape(message)}</span>
+    </div>
+    """
 
 
 def template_ctx(request: Any, **extra: Any) -> dict:

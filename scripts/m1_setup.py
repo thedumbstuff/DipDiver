@@ -33,13 +33,18 @@ DEFAULT_DATA_ROOT = data_root()
 # (TopkDropoutStrategy looks up day-after-trade for rebalances).
 FETCH_WINDOWS: dict[str, tuple[str, str]] = {
     "dow30":         ("2013-01-01", "2026-06-01"),
+    "sp500":         ("2013-01-01", "2026-06-01"),
     "nifty50":       ("2013-01-01", "2026-06-01"),
     "crypto":        ("2018-01-01", "2026-06-01"),
     "world_indices": ("2013-01-01", "2026-06-01"),
 }
 
+# sp500 shares us_data with dow30 (see sp500_*.yaml qlib_provider_uri). If
+# us_data was already built for dow30 only, re-run with
+# `--universe sp500 --force` to pull the extra constituents into the store.
 PROVIDER_DIR: dict[str, str] = {
     "dow30":         "us_data",
+    "sp500":         "us_data",
     "nifty50":       "in_data",
     "crypto":        "crypto_data",
     "world_indices": "world_data",

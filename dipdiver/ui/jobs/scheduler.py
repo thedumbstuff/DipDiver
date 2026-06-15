@@ -11,9 +11,11 @@ row and re-registers the APScheduler job.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -23,7 +25,6 @@ from croniter import croniter
 from dipdiver.ui import db
 from dipdiver.ui.jobs.alerts import send_alert
 from dipdiver.ui.jobs.registry import JobDef, all_jobs, get_job
-
 
 log = logging.getLogger(__name__)
 
@@ -119,32 +120,39 @@ def _wrap_job(jd: JobDef, triggered_by: str = "scheduler"):
     return wrapped
 
 
-def _execute_locked(jd: JobDef, triggered_by: str) -> dict:
-    started = datetime.now(timezone.utc)
+def _create_log_row(jd: JobDef, triggered_by: str) -> int:
+    """Insert the `running` JobLog row and return its id."""
     with db.session() as s:
         row = db.JobLog(
             job_id=jd.job_id,
-            started_utc=started,
+            started_utc=datetime.now(UTC),
             status="running",
             triggered_by=triggered_by,
         )
         s.add(row)
         s.flush()
-        log_id = row.id
+        return row.id
+
+
+def _execute_locked(jd: JobDef, triggered_by: str, log_id: int | None = None) -> dict:
+    if log_id is None:
+        log_id = _create_log_row(jd, triggered_by)
     try:
         result = jd.func() or {}
         rc = result.get("rc", 0)
         summary = result.get("message") or _short_summary(result)
         status = "success" if rc == 0 else "error"
-        error = None if rc == 0 else f"rc={rc}"
-    except Exception as e:  # noqa: BLE001
+        # Keep the job's own explanation — "rc=1" alone is useless in the UI
+        # fragment and in the Telegram alert.
+        error = None if rc == 0 else (result.get("error") or result.get("message") or f"rc={rc}")
+    except Exception as e:
         log.exception("job %s crashed", jd.job_id)
         result = {"rc": 1}
         rc = 1
         status = "error"
         summary = ""
         error = f"{type(e).__name__}: {e}"
-    finished = datetime.now(timezone.utc)
+    finished = datetime.now(UTC)
     with db.session() as s:
         row = s.get(db.JobLog, log_id)
         if row is not None:
@@ -193,7 +201,7 @@ def register_all() -> None:
             continue
         try:
             trigger = CronTrigger.from_crontab(cron, timezone="UTC")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             log.error("invalid cron for %s (%r): %s", job_id, cron, e)
             continue
         sched.add_job(_wrap_job(jd), trigger, id=job_id, name=jd.description, max_instances=1)
@@ -210,12 +218,10 @@ def update_schedule(job_id: str, cron: str, enabled: bool) -> None:
         row = s.query(db.ScheduleEntry).filter_by(job_id=job_id).one()
         row.cron = cron
         row.enabled = enabled
-        row.last_modified_utc = datetime.now(timezone.utc)
+        row.last_modified_utc = datetime.now(UTC)
     sched = get_scheduler()
-    try:
+    with contextlib.suppress(Exception):
         sched.remove_job(job_id)
-    except Exception:
-        pass
     jd = get_job(job_id)
     if jd and enabled:
         trigger = CronTrigger.from_crontab(cron, timezone="UTC")
@@ -242,6 +248,98 @@ def trigger_now(job_id: str, triggered_by: str = "manual") -> dict:
         }
 
 
+def trigger_async(job_id: str, triggered_by: str = "manual") -> dict:
+    """Start a job in a background thread and return immediately.
+
+    Used by /triggers so a long job never blocks the event loop (and thus the
+    whole UI). Returns {"log_id": …, "started": True} on success; the caller
+    polls the JobLog row (via /triggers/status/{log_id}) for completion.
+
+    Same busy contract as trigger_now(): if the per-job lock is held, returns
+    rc=409 + busy=True without queueing a second run. The lock is acquired
+    HERE (request thread) and released by the worker thread, so two parallel
+    POSTs can never both spawn a run.
+    """
+    jd = get_job(job_id)
+    if jd is None:
+        return {"rc": 1, "error": f"unknown job_id {job_id}"}
+    lock = _lock_for(job_id)
+    if not lock.acquire(blocking=False):
+        return {
+            "rc": 409,
+            "error": f"job {job_id!r} is already running. Wait for it to finish.",
+            "busy": True,
+        }
+    try:
+        log_id = _create_log_row(jd, triggered_by)
+    except Exception:
+        lock.release()
+        raise
+
+    def _run() -> None:
+        try:
+            _execute_locked(jd, triggered_by, log_id=log_id)
+        finally:
+            lock.release()
+
+    threading.Thread(target=_run, name=f"trigger-{job_id}", daemon=True).start()
+    return {"rc": 0, "log_id": log_id, "started": True}
+
+
+def run_adhoc(
+    job_id: str,
+    func: Callable[[Callable[[str], None]], dict],
+    *,
+    description: str = "",
+    triggered_by: str = "manual",
+) -> dict:
+    """Run a one-off parameterised callable in a background thread.
+
+    Like trigger_async(), but for work that is not in the cron registry (e.g.
+    market onboarding, which takes arguments). `func` receives a
+    `progress(msg)` callback that live-updates the JobLog row's summary, so
+    the /triggers/status polling fragment shows stage-by-stage progress.
+
+    Same busy contract: one run per job_id at a time, rc=409 + busy=True when
+    the lock is already held.
+    """
+    lock = _lock_for(job_id)
+    if not lock.acquire(blocking=False):
+        return {
+            "rc": 409,
+            "error": f"job {job_id!r} is already running. Wait for it to finish.",
+            "busy": True,
+        }
+    placeholder = JobDef(job_id=job_id, description=description, default_cron="", func=dict)
+    try:
+        log_id = _create_log_row(placeholder, triggered_by)
+    except Exception:
+        lock.release()
+        raise
+
+    def _progress(msg: str) -> None:
+        with db.session() as s:
+            row = s.get(db.JobLog, log_id)
+            if row is not None and row.status == "running":
+                row.summary = msg[:240]
+
+    bound = JobDef(
+        job_id=job_id,
+        description=description,
+        default_cron="",
+        func=lambda: func(_progress),
+    )
+
+    def _run() -> None:
+        try:
+            _execute_locked(bound, triggered_by, log_id=log_id)
+        finally:
+            lock.release()
+
+    threading.Thread(target=_run, name=f"adhoc-{job_id}", daemon=True).start()
+    return {"rc": 0, "log_id": log_id, "started": True}
+
+
 def next_fire_times(job_id: str, n: int = 5) -> list[str]:
     """Preview the next N firings for a cron expression. Used by /schedule."""
     with db.session() as s:
@@ -250,7 +348,7 @@ def next_fire_times(job_id: str, n: int = 5) -> list[str]:
             return []
         cron = row.cron
     try:
-        itr = croniter(cron, datetime.now(timezone.utc))
+        itr = croniter(cron, datetime.now(UTC))
     except Exception:
         return ["(invalid cron)"]
     out = []

@@ -18,14 +18,12 @@ per-day row for human display.
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
-
 
 # ---------------------------------------------------------------------------
 # Sub-records
@@ -130,7 +128,7 @@ class VetoOutcomeEvent(_EventBase):
 
 
 ScoreboardEvent = Annotated[
-    Union[DaySubmittedEvent, PnlSettledEvent, VetoOutcomeEvent],
+    DaySubmittedEvent | PnlSettledEvent | VetoOutcomeEvent,
     Field(discriminator="event_type"),
 ]
 
@@ -145,18 +143,35 @@ _EVENT_ADAPTER: TypeAdapter[ScoreboardEvent] = TypeAdapter(ScoreboardEvent)
 DEFAULT_SCOREBOARD_PATH = Path("scoreboard") / "scoreboard.jsonl"
 
 
+def _default_path() -> Path:
+    """Resolve the scoreboard path lazily from the UI data root.
+
+    DEFAULT_SCOREBOARD_PATH is relative, so binding it as a parameter default
+    made reads/writes depend on the process CWD — wrong under Docker/systemd
+    (CWD=/app, data under DIPDIVER_UI_DATA_ROOT) and in tests that switch the
+    data root per test. Resolving per call keeps both correct; with no env
+    override ui_scoreboard_path() is repo_root()/scoreboard/scoreboard.jsonl,
+    matching the old behaviour for repo-root invocations.
+    """
+    from dipdiver._paths import ui_scoreboard_path
+
+    return ui_scoreboard_path()
+
+
 def utc_now_iso() -> str:
     """Single source of truth for event timestamps. Always UTC, ISO format."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def append_event(event: ScoreboardEvent, path: Path = DEFAULT_SCOREBOARD_PATH) -> None:
+def append_event(event: ScoreboardEvent, path: Path | None = None) -> None:
     """Append one event as a single JSONL line.
 
     Append-only: never use this to overwrite an existing line. If you need to
     correct a row, write a new event (a future SchemaVersionEvent could mark
     superseded rows — not implemented yet).
     """
+    if path is None:
+        path = _default_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     line = event.model_dump_json()
     # Open in append-binary mode so we can guarantee a clean newline boundary
@@ -168,8 +183,10 @@ def append_event(event: ScoreboardEvent, path: Path = DEFAULT_SCOREBOARD_PATH) -
         os.fsync(f.fileno())
 
 
-def read_events(path: Path = DEFAULT_SCOREBOARD_PATH) -> list[ScoreboardEvent]:
+def read_events(path: Path | None = None) -> list[ScoreboardEvent]:
     """Read all events from the scoreboard JSONL. Skips blank lines."""
+    if path is None:
+        path = _default_path()
     if not path.exists():
         return []
     events: list[ScoreboardEvent] = []
@@ -226,8 +243,7 @@ def already_recorded(
             and e.strategy_id == strategy_id
         ):
             continue
-        if symbol is not None and isinstance(e, VetoOutcomeEvent):
-            if e.symbol != symbol:
-                continue
+        if symbol is not None and isinstance(e, VetoOutcomeEvent) and e.symbol != symbol:
+            continue
         return True
     return False
