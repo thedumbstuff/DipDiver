@@ -11,11 +11,26 @@ from pathlib import Path
 
 
 def repo_root() -> Path:
+    """Locate the repo / app root (holds pyproject.toml, scripts/, configs).
+
+    Resolution order:
+      1. DIPDIVER_REPO_ROOT env var. Required in the Docker image: the package
+         is pip-installed under site-packages, so walking up from this file
+         never reaches a pyproject.toml. deploy/Dockerfile sets it to /app.
+      2. Walk up from this file until pyproject.toml is found (dev / editable
+         installs, where the source tree IS the repo).
+    """
+    override = os.environ.get("DIPDIVER_REPO_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
     here = Path(__file__).resolve()
     for parent in [here.parent, *here.parents]:
         if (parent / "pyproject.toml").exists():
             return parent
-    raise RuntimeError("could not find repo root (no pyproject.toml above this file)")
+    raise RuntimeError(
+        "could not find repo root (no pyproject.toml above this file). "
+        "Set DIPDIVER_REPO_ROOT to the directory holding pyproject.toml + scripts/."
+    )
 
 
 def data_root() -> Path:

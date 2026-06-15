@@ -32,11 +32,16 @@ RUN pip install --upgrade pip wheel && \
 
 FROM python:3.12-slim AS runtime
 
+# DIPDIVER_REPO_ROOT must point at the source tree copied below (/app). The
+# package is pip-installed under site-packages, so repo_root() can't discover
+# pyproject.toml by walking up from the module — without this the app crashes
+# at import. /app holds pyproject.toml + scripts/ + dipdiver/.../configs.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DIPDIVER_UI_HOST=0.0.0.0 \
     DIPDIVER_UI_PORT=8765 \
-    DIPDIVER_UI_DATA_ROOT=/var/lib/dipdiver
+    DIPDIVER_UI_DATA_ROOT=/var/lib/dipdiver \
+    DIPDIVER_REPO_ROOT=/app
 
 # tini gives us proper signal handling for graceful shutdowns.
 RUN apt-get update && apt-get install -y --no-install-recommends \
