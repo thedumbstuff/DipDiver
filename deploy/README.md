@@ -78,12 +78,18 @@ sections below (skip the Tailscale steps).
 
 ### Enabling more markets
 
-The image ships with the `brain` extra (qlib + lightgbm + torch), so the
-first build downloads several GB — be patient. In exchange, onboarding a new
-market is one click: **/config → Add market** picks a universe + model, then
-fetches data, trains and gate-checks the M1 baseline, exports signals, and
-enables the nightly strategy — all as a background job with live progress.
-Fetched data and signals persist under `/var/lib/dipdiver/data`.
+The image ships with the `brain-lite` extra (qlib + lightgbm, **no torch**),
+so it stays small and the build is quick. Onboarding a new market is one
+click: **/config → Add market** picks a universe + model, then fetches data,
+trains and gate-checks the M1 baseline, exports signals, and enables the
+nightly strategy — all as a background job with live progress. Fetched data
+and signals persist under `/var/lib/dipdiver/data`.
+
+Pick **lightgbm** as the model — it's the stronger baseline and the only one
+the lean image can train. Onboarding an **lstm** config fails cleanly with
+"brain dependencies missing: torch"; to enable LSTM in-container, switch the
+Dockerfile install line to the full `.[ui,m2,m3,brain]` extra and rebuild
+(adds several GB).
 
 ## Production (self-hosted VM)
 

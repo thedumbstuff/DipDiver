@@ -20,13 +20,14 @@ COPY pyproject.toml README.md LICENSE ./
 COPY dipdiver ./dipdiver
 COPY scripts ./scripts
 
-# brain extra (qlib/lightgbm/torch/yfinance) enables in-container training —
-# the /config "Add market" onboarding and real m1_retrain runs. It is BIG
-# (torch pulls CUDA wheels, several GB). For a leaner CPU-only image, install
-# torch first from https://download.pytorch.org/whl/cpu and drop it from the
-# extra.
+# brain-lite extra (qlib/lightgbm/yfinance, NO torch) enables in-container
+# training for the /config "Add market" onboarding and m1_retrain — for
+# LightGBM configs, which are the better-performing M1 baseline anyway. This
+# keeps the image small (hundreds of MB vs several GB with torch). LSTM
+# configs fail onboarding with a clean "brain dependencies missing: torch"
+# message; swap to ".[ui,m2,m3,brain]" below if you need LSTM in-container.
 RUN pip install --upgrade pip wheel && \
-    pip install --prefix=/install ".[ui,m2,m3,brain]"
+    pip install --prefix=/install ".[ui,m2,m3,brain-lite]"
 
 # ---------------------------------------------------------------------------
 

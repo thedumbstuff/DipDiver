@@ -49,6 +49,19 @@ brain = [
     "pandas>=2.2",
     "yfinance>=0.2.40",
 ]
+# LightGBM-only brain — same as `brain` minus torch (and thus no LSTM). Use
+# this for a much smaller Docker image (~hundreds of MB vs several GB once
+# torch + CUDA wheels are pulled). LightGBM is the better-performing M1
+# baseline anyway; LSTM configs onboarded against this extra fail cleanly with
+# "brain dependencies missing: torch". Install the full `brain` extra to add LSTM.
+brain-lite = [
+    "pyqlib>=0.9.7; python_version < '3.13'",
+    "pyyaml>=6",
+    "lightgbm>=4",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "yfinance>=0.2.40",
+]
 m2 = [
     # m2-lite: our LLM factor-proposer. OpenAI SDK works for DeepSeek too
     # via base_url override. Pydantic validates LLM output before it touches Qlib.
