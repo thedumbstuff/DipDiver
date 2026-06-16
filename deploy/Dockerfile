@@ -62,6 +62,14 @@ WORKDIR /app
 COPY --from=build /install /usr/local
 COPY --from=build /build /app
 
+# qlib imports `packaging` but never declares it. The build stage's
+# `pip install --prefix=/install` SKIPS it because the build base already
+# provides a top-level `packaging` (pulled in by the pip/wheel upgrade), so it
+# never lands in /install and never reaches this runtime image. Install it
+# directly here — pure-python wheel, no build tools needed; --ignore-installed
+# so it can't be no-op'd by a partial copy. This is the reliable home for it.
+RUN pip install --no-cache-dir --ignore-installed "packaging>=21"
+
 # Persistent state lives outside the image so it survives container rebuilds.
 RUN mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data}
 
