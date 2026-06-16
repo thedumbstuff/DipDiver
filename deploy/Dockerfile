@@ -88,6 +88,12 @@ from qlib.contrib.strategy import TopkDropoutStrategy; \
 import lightgbm, yfinance, pandas, numpy; \
 print('brain import chain OK')"
 
+# qlib tracks training via mlflow's file store; newer mlflow raises on it
+# unless this opt-out is set. Baked in here (not just docker-compose.yml) so
+# the app runs regardless of how it's launched. Placed late to keep the heavy
+# layers above cached. docker-compose.yml additionally persists /app/mlruns.
+ENV MLFLOW_ALLOW_FILE_STORE=true
+
 EXPOSE 8765
 
 ENTRYPOINT ["/usr/bin/tini", "--"]

@@ -31,7 +31,7 @@ git clone <this-repo> /opt/dipdiver/DipDiver
 cd /opt/dipdiver/DipDiver
 
 # 2. Create the persistent state dirs (survive container rebuilds)
-sudo mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data}
+sudo mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data,mlruns}
 
 # 3. Drop API keys
 sudo cp .env.m2.example /var/lib/dipdiver/secrets/.env.m2

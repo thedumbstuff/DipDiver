@@ -24,6 +24,11 @@ services:
       DIPDIVER_UI_PORT: ${DIPDIVER_UI_PORT:-8765}
       DIPDIVER_UI_DATA_ROOT: /var/lib/dipdiver
       DIPDIVER_UI_LOG_LEVEL: INFO
+      # qlib tracks training runs via mlflow's file store. Newer mlflow raises
+      # on the file store unless this opt-out is set. qlib hardcodes the store
+      # to <cwd>/mlruns = /app/mlruns (it overrides MLFLOW_TRACKING_URI), which
+      # the volume below persists. See deploy/Dockerfile for the dep notes.
+      MLFLOW_ALLOW_FILE_STORE: "true"
       # Optional Telegram alerts. Leave unset to disable.
       DIPDIVER_UI_TELEGRAM_BOT_TOKEN: ${DIPDIVER_UI_TELEGRAM_BOT_TOKEN:-}
       DIPDIVER_UI_TELEGRAM_CHAT_ID: ${DIPDIVER_UI_TELEGRAM_CHAT_ID:-}
@@ -34,6 +39,10 @@ services:
       # the fetch/train/export pipeline ("Add market", m1_retrain,
       # signal_refresh). Mount them out so onboarded markets survive rebuilds.
       - /var/lib/dipdiver/data:/app/data
+      # qlib writes mlflow training runs to /app/mlruns (its hardcoded default).
+      # Persist them off the container's writable layer so they survive rebuilds
+      # and don't grow the image.
+      - /var/lib/dipdiver/mlruns:/app/mlruns
       # Mount the broker keys + LLM keys read-only at the path the app expects.
       - /var/lib/dipdiver/secrets/.env.m2:/app/.env.m2:ro
     healthcheck:
