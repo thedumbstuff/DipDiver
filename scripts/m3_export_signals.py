@@ -44,14 +44,14 @@ def export_signals(m1: BaselineConfig, output_path: Path) -> int:
     with insufficient lookback at the start of the test window typically
     have one or two days of NaN).
     """
-    import qlib
     from qlib.utils import init_instance_by_config
 
+    from dipdiver.brain.baselines._qlib.init import safe_qlib_init
     from dipdiver.brain.baselines._qlib.task import build_task
 
     log.info("Initialising Qlib (provider=%s region=%s)",
              m1.qlib_provider_uri, m1.region)
-    qlib.init(
+    safe_qlib_init(
         provider_uri=str(resolve_provider_uri(m1.qlib_provider_uri)),
         region=_qlib_region(m1.region),
     )

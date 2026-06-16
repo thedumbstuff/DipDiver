@@ -25,11 +25,12 @@ def _init_qlib(m1: BaselineConfig) -> None:
     if _QLIB_INITIALISED:
         return
 
-    import qlib
     from qlib.config import REG_CN, REG_US
 
+    from dipdiver.brain.baselines._qlib.init import safe_qlib_init
+
     region = {"us": REG_US, "in": REG_US, "crypto": REG_US, "cn": REG_CN}.get(m1.region, REG_US)
-    qlib.init(
+    safe_qlib_init(
         provider_uri=str(resolve_provider_uri(m1.qlib_provider_uri)),
         region=region,
     )

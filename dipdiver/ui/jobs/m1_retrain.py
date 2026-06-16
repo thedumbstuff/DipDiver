@@ -50,15 +50,15 @@ def _safe_anchor_date(config) -> str | None:
     surface a clearer error.
     """
     try:
-        import qlib
         from qlib.constant import REG_CN, REG_US
         from qlib.data import D
         from dipdiver._paths import resolve_provider_uri
+        from dipdiver.brain.baselines._qlib.init import safe_qlib_init
 
         region = (
             REG_CN if (config.region or "").lower() == "cn" else REG_US
         )
-        qlib.init(
+        safe_qlib_init(
             provider_uri=str(resolve_provider_uri(config.qlib_provider_uri)),
             region=region,
         )

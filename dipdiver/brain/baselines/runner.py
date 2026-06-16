@@ -95,16 +95,16 @@ def _qlib_region(region: str) -> Any:
 
 def _run_qlib_workflow(config: BaselineConfig) -> dict[str, Any]:
     """Invoke Qlib's workflow on the config and return headline metrics."""
-    import qlib
     from qlib.utils import init_instance_by_config
     from qlib.workflow import R
     from qlib.workflow.record_temp import PortAnaRecord, SigAnaRecord, SignalRecord
 
     from dipdiver._paths import resolve_provider_uri
+    from dipdiver.brain.baselines._qlib.init import safe_qlib_init
     from dipdiver.brain.baselines._qlib.metrics import extract_metrics
     from dipdiver.brain.baselines._qlib.task import build_task
 
-    qlib.init(
+    safe_qlib_init(
         provider_uri=str(resolve_provider_uri(config.qlib_provider_uri)),
         region=_qlib_region(config.region),
     )

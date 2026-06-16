@@ -68,9 +68,10 @@ class QlibPriceProvider:
     def _ensure_init(self) -> None:
         if self._initialised:
             return
-        from qlib import init as qlib_init
         from qlib.constant import REG_US
-        qlib_init(provider_uri=self._uri, region=REG_US if self._region == "us" else self._region)
+
+        from dipdiver.brain.baselines._qlib.init import safe_qlib_init
+        safe_qlib_init(provider_uri=self._uri, region=REG_US if self._region == "us" else self._region)
         self._initialised = True
 
     def close_on_or_before(self, symbol: str, target_date: date_cls) -> tuple[date_cls, float] | None:
