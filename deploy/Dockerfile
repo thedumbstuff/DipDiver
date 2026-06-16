@@ -26,8 +26,13 @@ COPY scripts ./scripts
 # keeps the image small (hundreds of MB vs several GB with torch). LSTM
 # configs fail onboarding with a clean "brain dependencies missing: torch"
 # message; swap to ".[ui,m2,m3,brain]" below if you need LSTM in-container.
+# `packaging` is also declared in the brain extras, but we install it
+# explicitly here too: qlib imports it undeclared (qlib/utils/__init__.py) and
+# the transitive chain that normally carries it (matplotlib/mlflow) doesn't
+# survive the slim --prefix install reliably. Pinning it on this line also
+# guarantees the fix lands even if pyproject.toml is out of sync on the host.
 RUN pip install --upgrade pip wheel && \
-    pip install --prefix=/install ".[ui,m2,m3,brain-lite]"
+    pip install --prefix=/install ".[ui,m2,m3,brain-lite]" "packaging>=21"
 
 # ---------------------------------------------------------------------------
 
