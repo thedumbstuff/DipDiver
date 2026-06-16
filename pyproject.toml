@@ -48,6 +48,10 @@ brain = [
     "numpy>=1.26",
     "pandas>=2.2",
     "yfinance>=0.2.40",
+    # qlib does `from packaging import version` (qlib/utils/__init__.py) but
+    # never declares it — in most envs it rides in via matplotlib/mlflow, but
+    # that chain isn't reliable in the slim Docker install, so pin it directly.
+    "packaging>=21",
 ]
 # LightGBM-only brain — same as `brain` minus torch (and thus no LSTM). Use
 # this for a much smaller Docker image (~hundreds of MB vs several GB once
@@ -61,6 +65,7 @@ brain-lite = [
     "numpy>=1.26",
     "pandas>=2.2",
     "yfinance>=0.2.40",
+    "packaging>=21",  # qlib imports it undeclared; see note in `brain` extra
 ]
 m2 = [
     # m2-lite: our LLM factor-proposer. OpenAI SDK works for DeepSeek too

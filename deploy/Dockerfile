@@ -60,6 +60,21 @@ COPY --from=build /build /app
 # Persistent state lives outside the image so it survives container rebuilds.
 RUN mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data}
 
+# Build-time smoke test: import the FULL training chain the "Add market"
+# onboarding exercises, so any missing transitive dep (e.g. packaging) or
+# unloadable native lib (e.g. lightgbm without libgomp1) fails the BUILD here
+# rather than at click-time in the running app. qlib prints harmless
+# "CatBoostModel/XGBModel skipped" warnings for optional models we don't use.
+RUN python -c "import packaging.version, qlib; \
+from qlib.utils import init_instance_by_config; \
+from qlib.workflow import R; \
+from qlib.workflow.record_temp import PortAnaRecord, SigAnaRecord, SignalRecord; \
+from qlib.contrib.data.handler import Alpha158; \
+from qlib.contrib.model.gbdt import LGBModel; \
+from qlib.contrib.strategy import TopkDropoutStrategy; \
+import lightgbm, yfinance, pandas, numpy; \
+print('brain import chain OK')"
+
 EXPOSE 8765
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
