@@ -69,8 +69,10 @@ mlruns/
 *.pickle
 *.joblib
 
-# Lean artefacts
-Lean/
+# Lean artefacts — anchored to repo root so this does NOT also ignore the
+# Python package dipdiver/adapters/lean/ (an unanchored `Lean/` matched it on
+# case-insensitive filesystems, so those source files were never committed).
+/Lean/
 storage/
 results/
 

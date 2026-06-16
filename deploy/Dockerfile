@@ -73,11 +73,20 @@ RUN pip install --no-cache-dir --ignore-installed "packaging>=21"
 # Persistent state lives outside the image so it survives container rebuilds.
 RUN mkdir -p /var/lib/dipdiver/{scoreboard,db,logs,config,rendered,secrets,data}
 
-# Build-time smoke test: import the FULL training chain the "Add market"
-# onboarding exercises, so any missing transitive dep (e.g. packaging) or
-# unloadable native lib (e.g. lightgbm without libgomp1) fails the BUILD here
-# rather than at click-time in the running app. qlib prints harmless
-# "CatBoostModel/XGBModel skipped" warnings for optional models we don't use.
+# Make the source tree at /app authoritative for `import dipdiver` / `import
+# scripts`. Without this the app imports dipdiver from the pip-installed wheel
+# in site-packages, so a stale/incomplete wheel (or a partially-synced source)
+# silently breaks submodule imports (e.g. dipdiver.adapters.lean) at runtime.
+# Pinning PYTHONPATH=/app means runtime uses exactly the COPYied source — the
+# same tree the smoke test below validates — so build and runtime can't diverge.
+ENV PYTHONPATH=/app
+
+# Build-time smoke test: import the FULL chain the "Add market" onboarding
+# exercises — the qlib training stack AND our own training/export modules — so
+# a missing transitive dep (e.g. packaging), an unloadable native lib (lightgbm
+# without libgomp1), OR an incomplete source tree (e.g. a missing
+# dipdiver.adapters.lean) fails the BUILD here instead of at click-time. qlib
+# prints harmless "CatBoostModel/XGBModel skipped" warnings for optional models.
 RUN python -c "import packaging.version, qlib; \
 from qlib.utils import init_instance_by_config; \
 from qlib.workflow import R; \
@@ -86,7 +95,9 @@ from qlib.contrib.data.handler import Alpha158; \
 from qlib.contrib.model.gbdt import LGBModel; \
 from qlib.contrib.strategy import TopkDropoutStrategy; \
 import lightgbm, yfinance, pandas, numpy; \
-print('brain import chain OK')"
+import dipdiver.adapters.lean, dipdiver.adapters.alpaca, dipdiver.harness.picks; \
+import scripts.m3_export_signals; \
+print('brain + dipdiver import chain OK')"
 
 # qlib tracks training via mlflow's file store; newer mlflow raises on it
 # unless this opt-out is set. Baked in here (not just docker-compose.yml) so
