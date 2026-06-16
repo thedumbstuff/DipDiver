@@ -44,9 +44,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DIPDIVER_UI_DATA_ROOT=/var/lib/dipdiver \
     DIPDIVER_REPO_ROOT=/app
 
-# tini gives us proper signal handling for graceful shutdowns.
+# tini: proper signal handling for graceful shutdowns.
+# libgomp1: OpenMP runtime (libgomp.so.1) that LightGBM's native lib links
+#   against. Without it `import lightgbm` raises OSError on slim images and
+#   the "Add market" onboarding reports lightgbm as missing.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

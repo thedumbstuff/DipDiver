@@ -69,15 +69,24 @@ def _config_path(universe_key: str, model_kind: str):
 
 
 def _missing_brain_deps(model_kind: str) -> list[str]:
-    """Importability check for the heavy stages. Returns missing module names."""
+    """Importability check for the heavy stages.
+
+    Returns a list of human-readable problems. A bare module name means it is
+    not installed; "<mod> (OSError: …)" means the package is installed but
+    fails to load — almost always a missing system library (e.g. lightgbm
+    needs libgomp1). Distinguishing the two stops a native-lib gap from being
+    reported as a missing pip package.
+    """
     required = ["qlib", "yfinance", "pandas", "numpy"]
     required.append("torch" if model_kind == "lstm" else "lightgbm")
     missing = []
     for mod in required:
         try:
             __import__(mod)
-        except Exception:
-            missing.append(mod)
+        except ModuleNotFoundError:
+            missing.append(mod)  # genuinely not installed
+        except Exception as e:  # installed but won't import (native lib, ABI, …)
+            missing.append(f"{mod} ({type(e).__name__}: {e})")
     return missing
 
 
@@ -284,9 +293,10 @@ def run_onboard(
         return {
             "rc": 1,
             "error": (
-                f"brain dependencies missing: {', '.join(missing)}. "
-                f'Install with pip install -e ".[brain]" (or rebuild the Docker '
-                f"image — deploy/Dockerfile installs the brain extra)."
+                f"brain dependencies unavailable: {', '.join(missing)}. "
+                f"A bare name means it is not installed (add the brain extra: pip "
+                f'install -e ".[brain-lite]", or rebuild the Docker image). An '
+                f"OSError means a missing system library — lightgbm needs libgomp1."
             ),
         }
 

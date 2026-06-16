@@ -158,7 +158,7 @@ def test_add_market_missing_brain_deps_fails_cleanly(
     r = client.post("/config/markets/add", data={"universe": "sp500", "model": "lightgbm"})
     final = _poll_until_done(client, r.text)
     assert "rc=1" in final
-    assert "brain dependencies missing" in final
+    assert "brain dependencies unavailable" in final
 
 
 def test_add_market_busy_when_onboard_running(client: TestClient, data_root: Path):
