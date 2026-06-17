@@ -41,6 +41,12 @@ def main(argv: list[str] | None = None) -> int:
             level=log_level,
             format="%(asctime)s %(levelname)s %(name)s %(message)s",
         )
+        # Also write app logs to a file so the /logs page can show them (console
+        # logs only reach `docker logs`). Re-applied in the app lifespan so it
+        # still works under --reload / direct-uvicorn launches.
+        from dipdiver.ui.logging_setup import setup_file_logging
+
+        setup_file_logging(log_level)
         print(f"[dipdiver-ui] serving on http://{host}:{port}")
         uvicorn.run(
             "dipdiver.ui.app:app",

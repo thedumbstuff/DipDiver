@@ -71,6 +71,13 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # Attach the file-log handler in the serving process (robust under uvicorn
+    # --reload / direct launches where cli.main's setup doesn't apply) so the
+    # /logs page has the app's own logs, not just per-day trade records.
+    from dipdiver.ui.logging_setup import setup_file_logging
+    from dipdiver.ui.settings import env_settings
+
+    setup_file_logging(env_settings().log_level)
     db.init_db()
     scheduler.register_all()
     log.info("dipdiver-ui ready")

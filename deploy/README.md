@@ -144,7 +144,7 @@ All persistent state lives under `/var/lib/dipdiver/`:
 /var/lib/dipdiver/
 ├── scoreboard/scoreboard.jsonl   # the audit log (back this up)
 ├── db/ui.sqlite                  # job logs, kill-switch events
-├── logs/                         # m3_live + m2_lite per-day records
+├── logs/                         # dipdiver-ui.log (app log) + m3_live/m2_lite per-day records
 ├── config/ui_config.yaml         # strategy registry (managed via /config)
 ├── rendered/SCOREBOARD.md        # rendered scoreboard, served by /scoreboard
 └── secrets/.env.m2               # mounted into the container
