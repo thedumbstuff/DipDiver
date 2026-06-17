@@ -16,10 +16,9 @@ import logging
 import sys
 from pathlib import Path
 
-from dipdiver._paths import repo_root
+from dipdiver._paths import ui_data_root, ui_logs_dir, ui_scoreboard_path
 from dipdiver.harness.scoreboard import (
     CommitteeVerdictSummary,
-    DEFAULT_SCOREBOARD_PATH,
     DaySubmittedEvent,
     OrderSummary,
     already_recorded,
@@ -133,16 +132,17 @@ def _build_event_from_record(
         account_buying_power_pre=account.get("buying_power"),
         market_open_at_submit=rec.get("market_open"),  # may be None on older records
         dry_run=bool(rec.get("dry_run", False)),
-        source_run_record=str(record_path.relative_to(repo_root())).replace("\\", "/"),
+        source_run_record=str(record_path.relative_to(ui_data_root())).replace("\\", "/"),
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scoreboard", type=Path, default=None,
-                        help=f"Path to scoreboard.jsonl (default: {DEFAULT_SCOREBOARD_PATH})")
+                        help="Path to scoreboard.jsonl (default: scoreboard/scoreboard.jsonl "
+                             "under the UI data root)")
     parser.add_argument("--m3-live-root", type=Path, default=None,
-                        help="Default: logs/m3_live/ under repo root")
+                        help="Default: logs/m3_live/ under the UI data root")
     parser.add_argument("--include-dryrun", action="store_true",
                         help="Include dry-run records (default: skip them)")
     parser.add_argument("--dry-run", action="store_true",
@@ -159,8 +159,14 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    scoreboard_path = args.scoreboard or (repo_root() / DEFAULT_SCOREBOARD_PATH)
-    m3_live_root = args.m3_live_root or (repo_root() / "logs" / "m3_live")
+    # Both default to the UI data root (ui_scoreboard_path / ui_logs_dir), NOT
+    # repo_root(): on the VM repo_root() is /app (ephemeral, unmounted), so the
+    # old default wrote the scoreboard to /app/scoreboard and m3_live records to
+    # /app/logs — invisible to the /scoreboard + /logs pages, which read the UI
+    # data root, and lost on container rebuild. read_events()/append_event()
+    # already default to ui_scoreboard_path(); this matches them.
+    scoreboard_path = args.scoreboard or ui_scoreboard_path()
+    m3_live_root = args.m3_live_root or (ui_logs_dir() / "m3_live")
 
     if not m3_live_root.exists():
         print(f"[m6-backfill] no m3_live records at {m3_live_root}; nothing to do")

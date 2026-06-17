@@ -7,7 +7,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from dipdiver._paths import repo_root
+from dipdiver._paths import ui_logs_dir
 from dipdiver.harness.render import FusedDayRow, fuse_by_day
 from dipdiver.harness.scoreboard import read_events
 
@@ -20,7 +20,7 @@ def load_run_record(date: str, universe: str) -> dict | None:
     """Read the raw m3_live JSON for a given (date, universe). Tries both the
     real and dryrun suffixes; real wins.
     """
-    base = repo_root() / "logs" / "m3_live" / universe
+    base = ui_logs_dir() / "m3_live" / universe
     real = base / f"{date}.json"
     dryrun = base / f"{date}_dryrun.json"
     for p in (real, dryrun):

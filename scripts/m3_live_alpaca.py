@@ -30,7 +30,7 @@ import os
 import sys
 from pathlib import Path
 
-from dipdiver._paths import repo_root
+from dipdiver._paths import repo_root, ui_logs_dir
 from dipdiver.adapters.alpaca import compute_target_holdings
 from dipdiver.brain.baselines.config import BaselineConfig, load_config
 from dipdiver.brain.baselines.universes import get_universe
@@ -384,7 +384,14 @@ def main(argv: list[str] | None = None) -> int:
               f"python scripts/m3_export_signals.py --m1-config {args.m1_config}")
         return 1
 
-    output_dir = repo_root() / "logs" / "m3_live" / m1.universe
+    # Run records are UI-owned mutable state: write them under the UI data root
+    # (ui_logs_dir() = <DIPDIVER_UI_DATA_ROOT>/logs) so they (a) persist on the
+    # VM's mounted volume and (b) are visible to the /logs page + dashboard,
+    # which read the same root. On dev (no DIPDIVER_UI_DATA_ROOT) this is still
+    # <repo>/logs, so behaviour is unchanged. Writing to repo_root()/logs
+    # instead lands them in /app/logs inside the container — ephemeral AND
+    # invisible to the page (which reads <DIPDIVER_UI_DATA_ROOT>/logs).
+    output_dir = ui_logs_dir() / "m3_live" / m1.universe
 
     print(f"[m3-live] M1:        {args.m1_config}  (universe={m1.universe})")
     print(f"[m3-live] signals:   {args.signals}")

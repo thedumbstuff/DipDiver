@@ -16,7 +16,7 @@ import os
 import sys
 from pathlib import Path
 
-from dipdiver._paths import repo_root
+from dipdiver._paths import repo_root, ui_logs_dir
 from dipdiver.brain.baselines.config import load_config as load_m1_config
 from dipdiver.brain.m2.lite import PROVIDERS, run_lite_loop
 
@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     out = args.output_dir
     if out is None:
         ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-        out = repo_root() / "logs" / "m2_lite" / f"{args.m1_config.replace('.yaml','')}_{ts}"
+        out = ui_logs_dir() / "m2_lite" / f"{args.m1_config.replace('.yaml','')}_{ts}"
 
     print(f"[m2-lite] m1: {args.m1_config}")
     print(f"[m2-lite] provider: {args.provider}")

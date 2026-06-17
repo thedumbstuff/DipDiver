@@ -17,11 +17,11 @@ import json
 import sys
 from pathlib import Path
 
-from dipdiver._paths import repo_root
+from dipdiver._paths import ui_logs_dir
 
 
 def _newest_run() -> Path | None:
-    root = repo_root() / "logs" / "m2_lite"
+    root = ui_logs_dir() / "m2_lite"
     if not root.exists():
         return None
     runs = [d for d in root.iterdir() if d.is_dir()]
@@ -147,7 +147,7 @@ def _print_loop_detail(rec: dict) -> None:
 
 def _list_runs() -> int:
     """Print one line per m2-lite run found under logs/m2_lite/, newest first."""
-    root = repo_root() / "logs" / "m2_lite"
+    root = ui_logs_dir() / "m2_lite"
     if not root.exists():
         print("[m2-lite-verify] no logs/m2_lite/ directory yet")
         return 1

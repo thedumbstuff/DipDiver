@@ -234,13 +234,14 @@ def seeded_run_record(data_root: Path) -> Path:
 
 @pytest.fixture()
 def patch_repo_root_to_data_root(data_root: Path, monkeypatch: pytest.MonkeyPatch):
-    """Some helpers use repo_root() (e.g. load_run_record reads logs/m3_live).
-    For tests, redirect repo_root() to the per-test data_root tmpdir so the
-    seeded fixtures land where the helpers look.
+    """Redirect repo_root() to the per-test data_root tmpdir.
+
+    helpers.load_run_record now reads run records via ui_logs_dir() (=
+    <DIPDIVER_UI_DATA_ROOT>/logs), which the `data_root` fixture already points
+    at this tmpdir — so the seeded record is found without any patching. We keep
+    redirecting repo_root() (with raising=False, since callers may not have it
+    imported) for any other helper still resolving paths off the repo root.
     """
     import dipdiver._paths as paths_mod
     monkeypatch.setattr(paths_mod, "repo_root", lambda: data_root)
-    # Also patch references already imported.
-    import dipdiver.ui.helpers as helpers_mod
-    monkeypatch.setattr(helpers_mod, "repo_root", lambda: data_root)
     return data_root
