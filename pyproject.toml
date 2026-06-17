@@ -47,6 +47,7 @@ brain = [
     "torch>=2.2",
     "numpy>=1.26",
     "pandas>=2.2",
+    "scipy>=1.10",  # PSR/minTRL in baselines/_qlib/metrics.py (also a transitive qlib dep)
     "yfinance>=0.2.40",
     # qlib does `from packaging import version` (qlib/utils/__init__.py) but
     # never declares it — in most envs it rides in via matplotlib/mlflow, but
@@ -64,6 +65,7 @@ brain-lite = [
     "lightgbm>=4",
     "numpy>=1.26",
     "pandas>=2.2",
+    "scipy>=1.10",  # PSR/minTRL in baselines/_qlib/metrics.py (also a transitive qlib dep)
     "yfinance>=0.2.40",
     "packaging>=21",  # qlib imports it undeclared; see note in `brain` extra
 ]

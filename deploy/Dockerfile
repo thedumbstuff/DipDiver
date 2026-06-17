@@ -95,7 +95,9 @@ from qlib.contrib.data.handler import Alpha158; \
 from qlib.contrib.model.gbdt import LGBModel; \
 from qlib.contrib.strategy import TopkDropoutStrategy; \
 import lightgbm, yfinance, pandas, numpy; \
+import scipy.stats; \
 import dipdiver.adapters.lean, dipdiver.adapters.alpaca, dipdiver.harness.picks; \
+import dipdiver.brain.baselines.runner, dipdiver.brain.baselines._qlib.metrics; \
 import scripts.m3_export_signals; \
 print('brain + dipdiver import chain OK')"
 
