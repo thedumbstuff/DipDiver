@@ -57,7 +57,7 @@
   {% endif %}
 
   <p class="text-xs text-zinc-500">
-    Gate thresholds (per asset class): Sharpe ≥ 0.5, |MDD| ≤ 0.30 (crypto 0.40), hit-rate ≥ 0.45, PSR ≥ 0.95. PSR is the probability the true Sharpe &gt; 0 given the sample length and return skew/kurtosis — it stops a lucky or short-sample Sharpe from locking. A failing run stays as <span class="pill pill-info">candidate</span> while the prior locked model keeps serving picks.
+    Gate thresholds (per asset class): Sharpe ≥ 0.5, |MDD| ≤ 0.30 (crypto 0.40), hit-rate ≥ 0.45, PSR ≥ 0.95 (live) / 0.90 (research-only). PSR is the probability the true Sharpe &gt; 0 given the sample length and return skew/kurtosis — it stops a lucky or short-sample Sharpe from locking; the bar is looser for research-only universes that never trade live capital. A failing run stays as <span class="pill pill-info">candidate</span> while the prior locked model keeps serving picks.
   </p>
 </section>
 {% endblock %}

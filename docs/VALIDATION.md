@@ -95,13 +95,15 @@ be re-locked once):
   (~365 for 24/7 crypto, ~252 for equities) instead of a hardcoded 252. The old
   constant understated a crypto Sharpe by ~`sqrt(365/252) ≈ 1.20x`. Equity
   numbers are unchanged.
-- **Probabilistic Sharpe Ratio (PSR) gate.** A model must also clear
-  `PSR ≥ 0.95` — the confidence its true Sharpe exceeds 0 given the sample
-  length and the return distribution's skew/kurtosis (Bailey & López de Prado).
-  This stops a lucky or short-sample Sharpe point estimate from locking. PSR and
-  the Minimum Track Record Length are reported alongside Sharpe on `/models`.
-  Validated non-breaking: dow30/sp500 baselines clear it (PSR ≈ 0.97); a
-  marginal model does not.
+- **Probabilistic Sharpe Ratio (PSR) gate.** A model must also clear a PSR bar —
+  the confidence its true Sharpe exceeds 0 given the sample length and the return
+  distribution's skew/kurtosis (Bailey & López de Prado). This stops a lucky or
+  short-sample Sharpe point estimate from locking. The bar scales with capital at
+  risk: **live-executable** universes require `PSR ≥ 0.95` (textbook); **research-
+  only** universes (signals/picks only, no live capital — e.g. crypto, nifty50,
+  world_indices) use `PSR ≥ 0.90`. PSR and the Minimum Track Record Length are
+  reported alongside Sharpe on `/models`. Validated non-breaking: dow30/sp500
+  clear 0.95 (PSR ≈ 0.97); a marginal model does not.
 
 For a distribution rather than one point estimate, `runner.run_walkforward` /
 `walkforward_summary` re-run a config across rolling test windows and report

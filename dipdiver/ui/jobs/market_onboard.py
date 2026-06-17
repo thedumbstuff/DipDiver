@@ -187,6 +187,7 @@ def _train_stage(
     from dipdiver.brain.baselines.config import load_config
     from dipdiver.brain.baselines.results import save_locked
     from dipdiver.brain.baselines.runner import run_baseline
+    from dipdiver.brain.baselines.universes import get_universe
     from dipdiver.ui.jobs.m1_retrain import _asset_class, _gate, _record_version
 
     cfg_name = config_filename(universe_key, model_kind)
@@ -199,7 +200,8 @@ def _train_stage(
         "annualised_return": getattr(result, "annualised_return", 0.0),
         "psr": getattr(result, "psr", 0.0),
     }
-    passed, reason = _gate(metrics, _asset_class(config.region))
+    live = get_universe(config.universe).live_executable
+    passed, reason = _gate(metrics, _asset_class(config.region), live_executable=live)
     _record_version(
         config_name=cfg_name,
         config_hash=result.config_hash,

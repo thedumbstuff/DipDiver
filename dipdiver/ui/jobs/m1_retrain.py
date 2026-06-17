@@ -27,25 +27,30 @@ log = logging.getLogger(__name__)
 # Per-asset-class lock gates. A rolled/onboarded model that fails these stays
 # `candidate`; the locked model keeps serving picks until a passing roll lands
 # (a failing retrain never supersedes a good lock — see _record_version).
-#
-# `psr_min` is the Probabilistic Sharpe Ratio bar: confidence that the TRUE
-# Sharpe exceeds 0 given the sample length and the return distribution's
-# skew/kurtosis. 0.95 is the textbook bar (Bailey & López de Prado) and was
-# validated to pass a genuinely-good model (dow30 PSR≈0.97, Sharpe 1.28) while
-# correctly rejecting a marginal one (3-name crypto PSR≈0.67). It stops a
-# lucky/short-sample Sharpe from locking — which a raw point estimate hides.
 _LOCK_GATES: dict[str, dict[str, float]] = {
-    "default": {"sharpe_min": 0.5, "max_dd_max": 0.30, "hit_rate_min": 0.45, "psr_min": 0.95},
+    "default": {"sharpe_min": 0.5, "max_dd_max": 0.30, "hit_rate_min": 0.45},
     # Crypto is higher-vol and trades 24/7; a wider drawdown band is realistic.
-    # We keep the same statistical-confidence bar so breadth/edge — not luck —
-    # is what locks it.
-    "crypto": {"sharpe_min": 0.5, "max_dd_max": 0.40, "hit_rate_min": 0.45, "psr_min": 0.95},
+    "crypto": {"sharpe_min": 0.5, "max_dd_max": 0.40, "hit_rate_min": 0.45},
 }
+
+
+# Probabilistic Sharpe Ratio bar: confidence the TRUE Sharpe exceeds 0 given the
+# sample length and the return distribution's skew/kurtosis (Bailey & López de
+# Prado). It stops a lucky/short-sample Sharpe from locking. The bar scales with
+# capital at risk: live-executable universes (real orders) demand the textbook
+# 0.95; research-only universes (signals/picks only, no live capital) use a
+# looser 0.90 — a marginal lock there costs only a noisy research signal.
+_PSR_MIN_LIVE = 0.95
+_PSR_MIN_RESEARCH = 0.90
 
 
 def _asset_class(region: str | None) -> str:
     """Map a config/universe region to a _LOCK_GATES key."""
     return "crypto" if (region or "").lower() == "crypto" else "default"
+
+
+def _psr_min(*, live_executable: bool) -> float:
+    return _PSR_MIN_LIVE if live_executable else _PSR_MIN_RESEARCH
 
 
 # Buffer in trading days subtracted from Qlib's last available date when
@@ -139,8 +144,11 @@ def _record_version(
         ))
 
 
-def _gate(metrics: dict, asset_class: str = "default") -> tuple[bool, str]:
+def _gate(
+    metrics: dict, asset_class: str = "default", *, live_executable: bool = True
+) -> tuple[bool, str]:
     gates = _LOCK_GATES.get(asset_class, _LOCK_GATES["default"])
+    psr_min = _psr_min(live_executable=live_executable)
     sharpe = float(metrics.get("sharpe", 0.0) or 0.0)
     mdd = abs(float(metrics.get("max_drawdown", 0.0) or 0.0))
     hit = float(metrics.get("hit_rate", 0.0) or 0.0)
@@ -151,9 +159,9 @@ def _gate(metrics: dict, asset_class: str = "default") -> tuple[bool, str]:
         return False, f"max_dd {mdd:.2f} > {gates['max_dd_max']}"
     if hit < gates["hit_rate_min"]:
         return False, f"hit_rate {hit:.2f} < {gates['hit_rate_min']}"
-    if psr < gates["psr_min"]:
+    if psr < psr_min:
         return False, (
-            f"psr {psr:.2f} < {gates['psr_min']} "
+            f"psr {psr:.2f} < {psr_min} "
             f"(Sharpe not statistically significant for the sample length)"
         )
     return True, "all gates passed"
@@ -299,7 +307,9 @@ def run() -> dict:
             overall_rc = 1
             continue
 
-        passed, reason = _gate(metrics, _asset_class(base.region))
+        from dipdiver.brain.baselines.universes import get_universe
+        live = get_universe(base.universe).live_executable
+        passed, reason = _gate(metrics, _asset_class(base.region), live_executable=live)
         _record_version(
             config_name=strat.m1_config,
             config_hash=rolled.config_hash,
