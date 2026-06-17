@@ -79,13 +79,24 @@ NIFTY50 = Universe(
     benchmark_yahoo="^NSEI",
 )
 
-# Small crypto basket — spot only, USD-quoted.
+# Liquid crypto basket — spot only, USD-quoted.
+# Cross-sectional ranking needs breadth (IR ≈ IC·√breadth): 3 names gave the
+# model almost nothing to rank. This is ~20 liquid majors. BTC is the benchmark
+# ONLY (not a ranked constituent) — otherwise "excess vs BTC" is self-referential
+# and the ranker spends a slot on its own benchmark. All names have full history
+# through the test window (newer coins simply join the cross-section late, which
+# Qlib's per-instrument calendar handles point-in-time).
 CRYPTO_BASKET = Universe(
     name="crypto",
     region="crypto",
     live_executable=False,
-    instruments=("BTC-USD", "ETH-USD", "SOL-USD"),
-    benchmark="BTC-USD",        # already in the universe
+    instruments=(
+        "ETH-USD", "BNB-USD", "XRP-USD", "ADA-USD", "SOL-USD",
+        "DOGE-USD", "TRX-USD", "LINK-USD", "DOT-USD", "MATIC-USD",
+        "LTC-USD", "BCH-USD", "AVAX-USD", "XLM-USD", "ATOM-USD",
+        "ETC-USD", "UNI-USD", "AAVE-USD", "NEAR-USD", "ALGO-USD",
+    ),
+    benchmark="BTC-USD",        # benchmark only — fetched into the store, not ranked
     benchmark_yahoo="BTC-USD",
 )
 

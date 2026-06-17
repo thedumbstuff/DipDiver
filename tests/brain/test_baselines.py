@@ -36,8 +36,12 @@ def test_nifty50_has_50_instruments() -> None:
     assert len(NIFTY50) == 50
 
 
-def test_crypto_basket_has_3_instruments() -> None:
-    assert len(CRYPTO_BASKET) == 3
+def test_crypto_basket_is_a_liquid_ranking_universe() -> None:
+    # Expanded from 3 -> ~20 liquid alts for cross-sectional breadth (IR ~ IC*sqrt(N)).
+    assert len(CRYPTO_BASKET) >= 15
+    # BTC is the benchmark only, NOT a ranked constituent.
+    assert CRYPTO_BASKET.benchmark == "BTC-USD"
+    assert "BTC-USD" not in CRYPTO_BASKET.instruments
 
 
 def test_universes_have_unique_tickers() -> None:

@@ -18,19 +18,26 @@ benchmark: "NSEI"
 seed: 42
 
 model_params:
+  # Retuned off the old DOW30 clone (num_leaves=210/max_depth=8, heavy L1/L2):
+  # smaller trees + lighter regularisation + early stopping, same recipe that
+  # lifted the crypto baseline. NIFTY already has breadth (50 names).
   loss: mse
-  colsample_bytree: 0.8879
-  learning_rate: 0.0421
-  subsample: 0.8789
-  lambda_l1: 205.6999
-  lambda_l2: 580.9768
-  max_depth: 8
-  num_leaves: 210
+  learning_rate: 0.02
+  num_leaves: 63
+  max_depth: 6
+  colsample_bytree: 0.8
+  subsample: 0.8
+  subsample_freq: 1
+  lambda_l1: 10
+  lambda_l2: 50
+  num_boost_round: 2000
+  early_stopping_rounds: 50
   num_threads: 20
 
 backtest_params:
   topk: 15
-  n_drop: 5
+  n_drop: 3           # turnover = 2*n_drop/topk = 0.4/rebalance (was 0.67)
+  hold_thresh: 3      # min holding days — curbs daily churn / cost drag
   # NSE retail delivery via Zerodha-style discount broker (0% brokerage on delivery):
   #   buy:  stamp duty 0.015% + GST/exchange/SEBI = ~3 bps
   #   sell: STT 0.10% + exchange + GST + DP = ~11 bps

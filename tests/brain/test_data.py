@@ -66,7 +66,7 @@ def test_verify_reports_complete_store(tmp_path: Path) -> None:
     report = verify_store(tmp_path, CRYPTO_BASKET)
     assert isinstance(report, VerifyReport)
     assert report.ok
-    assert report.n_instruments_found == 3
+    assert report.n_instruments_found == len(CRYPTO_BASKET.instruments)
     assert report.calendar_days == 5
     assert not report.instruments_missing
 

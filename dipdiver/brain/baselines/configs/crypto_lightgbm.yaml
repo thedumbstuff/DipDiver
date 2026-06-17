@@ -1,5 +1,9 @@
-# M1 baseline: small crypto basket × LightGBM
+# M1 baseline: liquid crypto basket × LightGBM
 # 24/7 trading calendar; daily rebalance for v1 (intraday in a later milestone).
+# Params are tuned for crypto's small, noisy cross-section — NOT the DOW30 clone
+# this used to be (num_leaves=210/max_depth=8 wildly over-capacity for ~20 names,
+# and lambda_l1/l2 carried over from an equity fit). Smaller trees + lighter
+# regularisation + early stopping let the validation IC pick model depth.
 
 name: crypto_lightgbm
 universe: crypto
@@ -17,20 +21,29 @@ test_end:    "2025-12-31"
 benchmark: "BTC-USD"
 seed: 42
 
+# Label horizon: the default next-period (h=1) forward return won decisively
+# here — a 5-day label was validated and made things far worse (Sharpe 1.09→0.05),
+# so we keep the default. The knob lives in BaselineConfig.label_horizon if a
+# future universe benefits from a longer/vol-normalised target.
+
 model_params:
   loss: mse
-  colsample_bytree: 0.8879
-  learning_rate: 0.0421
-  subsample: 0.8789
-  lambda_l1: 205.6999
-  lambda_l2: 580.9768
-  max_depth: 8
-  num_leaves: 210
+  learning_rate: 0.02
+  num_leaves: 63
+  max_depth: 6
+  colsample_bytree: 0.8
+  subsample: 0.8
+  subsample_freq: 1       # bagging only applies when freq > 0
+  lambda_l1: 10
+  lambda_l2: 50
+  num_boost_round: 2000   # high ceiling; early_stopping_rounds cuts it short
+  early_stopping_rounds: 50
   num_threads: 20
 
 backtest_params:
-  topk: 2             # universe is small; topk close to universe size
-  n_drop: 1
+  topk: 10            # hold top-10 of ~20 ranked names — room for the ranker
+  n_drop: 3           # turnover = 2*n_drop/topk = 0.6/rebalance (was 1.0)
+  hold_thresh: 3      # min holding days — curbs daily churn / cost drag
   open_cost: 0.001    # ~0.1% per side on a major spot venue
   close_cost: 0.001
   min_cost: 0
