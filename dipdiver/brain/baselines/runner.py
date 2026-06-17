@@ -82,7 +82,80 @@ def run_baseline(config: BaselineConfig) -> BaselineResult:
         qlib_version=_qlib_version(),
         git_sha=_git_sha(),
         run_timestamp_utc=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        psr=metrics.get("psr", 0.0),
+        min_trl=metrics.get("min_trl", 0.0),
+        periods_per_year=metrics.get("periods_per_year", 252.0),
     )
+
+
+def run_walkforward(
+    config: BaselineConfig,
+    *,
+    n_folds: int = 4,
+    step_days: int = 365,
+    cadence: str = "1y",
+) -> list[BaselineResult]:
+    """Evaluate a config across several rolling test windows.
+
+    A single train/valid/test split gives one noisy Sharpe point estimate that
+    is easy to overfit to. This rolls the window back by `step_days` per fold
+    (fold 0 = the config as-is) and re-runs the whole pipeline, so the caller
+    gets a *distribution* of out-of-sample Sharpe to gate on instead of one
+    number. Folds whose window runs off the data store are skipped with a log,
+    not failed — `walkforward_summary` reports how many actually ran.
+    """
+    from datetime import date, timedelta
+
+    base_end = date.fromisoformat(config.test_end)
+    results: list[BaselineResult] = []
+    for k in range(n_folds):
+        anchor = (base_end - timedelta(days=step_days * k)).isoformat()
+        try:
+            rolled = config.roll_window(cadence=cadence, anchor_date=anchor)
+            results.append(run_baseline(rolled))
+        except Exception as e:  # noqa: BLE001 — a bad fold shouldn't kill the sweep
+            log.warning("walkforward fold %d (anchor=%s) skipped: %s", k, anchor, e)
+    return results
+
+
+def walkforward_summary(
+    results: list[BaselineResult],
+    *,
+    sharpe_min: float = 0.5,
+    psr_min: float = 0.95,
+) -> dict[str, Any]:
+    """Aggregate `run_walkforward` output into a gate-able distribution.
+
+    Returns median/min/mean Sharpe, median PSR, the fraction of folds clearing
+    (sharpe_min AND psr_min), and the per-fold detail. Gate on the distribution
+    (e.g. median Sharpe ≥ bar AND frac_passing ≥ 0.5) rather than a lucky fold.
+    """
+    import statistics
+
+    if not results:
+        return {
+            "n_folds": 0, "sharpe_median": 0.0, "sharpe_min": 0.0,
+            "sharpe_mean": 0.0, "psr_median": 0.0, "frac_passing": 0.0, "folds": [],
+        }
+    sharpes = [r.sharpe for r in results]
+    psrs = [r.psr for r in results]
+    n_pass = sum(1 for r in results if r.sharpe >= sharpe_min and r.psr >= psr_min)
+    return {
+        "n_folds": len(results),
+        "sharpe_median": float(statistics.median(sharpes)),
+        "sharpe_min": float(min(sharpes)),
+        "sharpe_mean": float(statistics.fmean(sharpes)),
+        "psr_median": float(statistics.median(psrs)),
+        "frac_passing": n_pass / len(results),
+        "folds": [
+            {
+                "test_start": r.test_start, "test_end": r.test_end,
+                "sharpe": round(r.sharpe, 3), "psr": round(r.psr, 3),
+                "max_drawdown": round(r.max_drawdown, 3),
+            }
+            for r in results
+        ],
+    }
 
 
 def _qlib_region(region: str) -> Any:

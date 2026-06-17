@@ -35,6 +35,11 @@ class BaselineResult:
     qlib_version: str
     git_sha: str  # commit at run time
     run_timestamp_utc: str
+    # Statistical-confidence metrics (added later — defaulted so old locked
+    # JSONs still deserialize via BaselineResult(**data)).
+    psr: float = 0.0  # Probabilistic Sharpe Ratio vs 0; accept-ish at >0.95
+    min_trl: float = 0.0  # Minimum Track Record Length (observations) for PSR>=0.95
+    periods_per_year: float = 252.0  # annualisation factor actually used
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)

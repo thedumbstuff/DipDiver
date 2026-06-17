@@ -37,6 +37,11 @@ class BaselineConfig:
     seed: int
     model_params: dict[str, Any] = field(default_factory=dict)
     backtest_params: dict[str, Any] = field(default_factory=dict)
+    # Label engineering (M-crypto). Defaults reproduce the original next-period
+    # forward-return label exactly, so existing configs/locks are unchanged; both
+    # fields enter config_hash so setting them forces a fresh lock.
+    label_horizon: int = 1  # forward-return horizon in periods (1 = next period)
+    label_vol_normalize: bool = False  # divide the forward return by trailing vol
 
     def __post_init__(self) -> None:
         if self.model not in ("lightgbm", "lstm"):

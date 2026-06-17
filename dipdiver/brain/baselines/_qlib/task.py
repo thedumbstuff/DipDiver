@@ -12,7 +12,28 @@ from typing import Any
 from dipdiver.brain.baselines.config import BaselineConfig
 
 
+# Default next-period forward return (h=1): Ref($close,-2)/Ref($close,-1)-1.
 _LABEL = ["Ref($close, -2) / Ref($close, -1) - 1"]
+
+
+def _label_exprs(config: BaselineConfig) -> list[str]:
+    """Build the label expression from the config.
+
+    Forward return over `label_horizon` periods, measured from the next bar
+    (t+1) so there's no look-ahead at decision time:
+        Ref($close, -1-h) / Ref($close, -1) - 1
+    h=1 reproduces the original `_LABEL` exactly. When `label_vol_normalize` is
+    set, the return is divided by trailing realised vol (past-only window) so the
+    target is comparable across volatility regimes — useful for noisy crypto.
+    """
+    h = int(getattr(config, "label_horizon", 1) or 1)
+    fwd = f"Ref($close, {-1 - h}) / Ref($close, -1) - 1"
+    if getattr(config, "label_vol_normalize", False):
+        win = max(h * 4, 20)
+        # Trailing daily-return vol up to t (uses past closes only).
+        vol = f"Std($close / Ref($close, 1) - 1, {win}) + 1e-12"
+        return [f"({fwd}) / ({vol})"]
+    return [fwd]
 
 
 def _data_handler_config(config: BaselineConfig) -> dict[str, Any]:
@@ -31,7 +52,7 @@ def _data_handler_config(config: BaselineConfig) -> dict[str, Any]:
             {"class": "DropnaLabel"},
             {"class": "CSRankNorm", "kwargs": {"fields_group": "label"}},
         ],
-        "label": _LABEL,
+        "label": _label_exprs(config),
     }
 
 
@@ -81,6 +102,9 @@ def _port_analysis_config(config: BaselineConfig) -> dict[str, Any]:
                 "signal": "<PRED>",
                 "topk": bp.get("topk", 10),
                 "n_drop": bp.get("n_drop", 3),
+                # Minimum holding days before a name is eligible to be dropped.
+                # >1 curbs turnover (and the cost drag that was sinking crypto).
+                "hold_thresh": bp.get("hold_thresh", 1),
             },
         },
         "backtest": {
