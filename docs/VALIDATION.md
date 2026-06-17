@@ -79,6 +79,34 @@ Before **any** real money flows through the system, all of these must be green. 
 
 Gates 1–4 are objective and queryable. Gates 5–9 require human discipline. The repo can't enforce gates 5–9, but it documents them and refuses to ship a "live" preset that bypasses them.
 
+## M1 model-lock gates
+
+`m1_retrain` / `market_onboard` lock a trained baseline only if it clears the
+per-asset-class gates in `dipdiver/ui/jobs/m1_retrain.py::_LOCK_GATES`
+(Sharpe, |max-drawdown|, hit-rate, **PSR**). A failing run is recorded as a
+`candidate` on `/models`; the prior locked model keeps serving picks.
+
+Two metric-correctness changes affect how these numbers are computed (so locks
+recorded before them are not directly comparable and crypto/7-day universes must
+be re-locked once):
+
+- **Calendar-derived annualisation.** `_qlib/metrics.py` annualises Sharpe /
+  return / vol by the *actual* observations-per-year of the test calendar
+  (~365 for 24/7 crypto, ~252 for equities) instead of a hardcoded 252. The old
+  constant understated a crypto Sharpe by ~`sqrt(365/252) ≈ 1.20x`. Equity
+  numbers are unchanged.
+- **Probabilistic Sharpe Ratio (PSR) gate.** A model must also clear
+  `PSR ≥ 0.95` — the confidence its true Sharpe exceeds 0 given the sample
+  length and the return distribution's skew/kurtosis (Bailey & López de Prado).
+  This stops a lucky or short-sample Sharpe point estimate from locking. PSR and
+  the Minimum Track Record Length are reported alongside Sharpe on `/models`.
+  Validated non-breaking: dow30/sp500 baselines clear it (PSR ≈ 0.97); a
+  marginal model does not.
+
+For a distribution rather than one point estimate, `runner.run_walkforward` /
+`walkforward_summary` re-run a config across rolling test windows and report
+median/min Sharpe and the fraction of folds passing.
+
 ## Kill-switch
 
 A kill-switch is a manual operator action that:

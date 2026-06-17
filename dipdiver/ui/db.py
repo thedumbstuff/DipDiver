@@ -23,6 +23,8 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -197,6 +199,7 @@ class ModelVersion(Base):
     sharpe: float = Column(Float, default=0.0)
     max_dd: float = Column(Float, default=0.0)
     hit_rate: float = Column(Float, default=0.0)
+    psr: float = Column(Float, default=0.0)  # Probabilistic Sharpe Ratio (confidence Sharpe>0)
     status: str = Column(String(16), default="candidate", nullable=False)
     # candidate | locked | superseded | rejected
     notes: str = Column(Text, default="", nullable=False)
@@ -240,8 +243,30 @@ def get_engine(path: Path | None = None):
             connect_args={"check_same_thread": False},
         )
         Base.metadata.create_all(_engine)
+        _migrate_schema(_engine)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
+
+
+# Columns added after a DB may already exist on disk. sqlite's create_all never
+# ALTERs an existing table, so new (nullable / defaulted) columns are added by
+# hand here. Idempotent: each ADD COLUMN runs only when the column is missing.
+_ADDED_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "model_versions": [("psr", "FLOAT DEFAULT 0.0")],
+}
+
+
+def _migrate_schema(engine) -> None:
+    insp = inspect(engine)
+    tables = set(insp.get_table_names())
+    with engine.begin() as conn:
+        for table, cols in _ADDED_COLUMNS.items():
+            if table not in tables:
+                continue  # create_all already made it with every current column
+            have = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in cols:
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 def init_db(path: Path | None = None) -> None:

@@ -39,6 +39,7 @@ def latest_locked_version(config_name: str) -> dict | None:
             "test_start": row.test_start,
             "test_end": row.test_end,
             "sharpe": row.sharpe, "max_dd": row.max_dd, "hit_rate": row.hit_rate,
+            "psr": row.psr,
         }
 
 

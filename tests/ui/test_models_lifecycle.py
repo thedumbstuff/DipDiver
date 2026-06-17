@@ -216,6 +216,7 @@ def test_m1_retrain_extracts_metrics_from_BaselineResult_dataclass(
         turnover=2.0, n_trades=42,
         benchmark_annualised_return=0.10, excess_return=0.08,
         qlib_version="0.9.7", git_sha="deadbeef", run_timestamp_utc="2026-06-06T00:00:00Z",
+        psr=0.99,  # clears the PSR>=0.95 gate so this run locks (see _LOCK_GATES)
     )
 
     monkeypatch.setattr(m1_retrain, "_resolve_config_path",
@@ -232,7 +233,7 @@ def test_m1_retrain_extracts_metrics_from_BaselineResult_dataclass(
     from dipdiver.ui import db
     with db.session() as s:
         rows = sorted(s.query(db.ModelVersion).all(), key=lambda r: r.id)
-    # Sharpe=1.2 > 0.5 gate, MDD=0.08 < 0.30 gate, hit=0.55 > 0.45 gate → LOCKED
+    # Sharpe=1.2 > 0.5, MDD=0.08 < 0.30, hit=0.55 > 0.45, PSR=0.99 > 0.95 → LOCKED
     assert rows[-1].status == "locked"
     assert rows[-1].sharpe == pytest.approx(1.2)
     assert rows[-1].hit_rate == pytest.approx(0.55)

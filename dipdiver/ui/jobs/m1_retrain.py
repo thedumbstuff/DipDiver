@@ -24,13 +24,28 @@ from dipdiver.ui.settings import ui_config
 log = logging.getLogger(__name__)
 
 
-_LOCK_GATES = {
-    # Conservative thresholds — a rolled retrain that fails these stays
-    # `candidate`; the locked model keeps serving picks until a passing roll lands.
-    "sharpe_min": 0.5,
-    "max_dd_max": 0.30,
-    "hit_rate_min": 0.45,
+# Per-asset-class lock gates. A rolled/onboarded model that fails these stays
+# `candidate`; the locked model keeps serving picks until a passing roll lands
+# (a failing retrain never supersedes a good lock — see _record_version).
+#
+# `psr_min` is the Probabilistic Sharpe Ratio bar: confidence that the TRUE
+# Sharpe exceeds 0 given the sample length and the return distribution's
+# skew/kurtosis. 0.95 is the textbook bar (Bailey & López de Prado) and was
+# validated to pass a genuinely-good model (dow30 PSR≈0.97, Sharpe 1.28) while
+# correctly rejecting a marginal one (3-name crypto PSR≈0.67). It stops a
+# lucky/short-sample Sharpe from locking — which a raw point estimate hides.
+_LOCK_GATES: dict[str, dict[str, float]] = {
+    "default": {"sharpe_min": 0.5, "max_dd_max": 0.30, "hit_rate_min": 0.45, "psr_min": 0.95},
+    # Crypto is higher-vol and trades 24/7; a wider drawdown band is realistic.
+    # We keep the same statistical-confidence bar so breadth/edge — not luck —
+    # is what locks it.
+    "crypto": {"sharpe_min": 0.5, "max_dd_max": 0.40, "hit_rate_min": 0.45, "psr_min": 0.95},
 }
+
+
+def _asset_class(region: str | None) -> str:
+    """Map a config/universe region to a _LOCK_GATES key."""
+    return "crypto" if (region or "").lower() == "crypto" else "default"
 
 
 # Buffer in trading days subtracted from Qlib's last available date when
@@ -101,6 +116,7 @@ def _record_version(
     sharpe = float(metrics.get("sharpe", 0.0) or 0.0)
     max_dd = float(metrics.get("max_drawdown", 0.0) or 0.0)
     hit_rate = float(metrics.get("hit_rate", 0.0) or 0.0)
+    psr = float(metrics.get("psr", 0.0) or 0.0)
     with db.session() as s:
         # Mark the previous locked row as superseded if this one is locked.
         if status == "locked":
@@ -118,21 +134,28 @@ def _record_version(
             locked_on_utc=datetime.now(timezone.utc),
             train_start=train_start, train_end=train_end,
             test_start=test_start, test_end=test_end,
-            sharpe=sharpe, max_dd=max_dd, hit_rate=hit_rate,
+            sharpe=sharpe, max_dd=max_dd, hit_rate=hit_rate, psr=psr,
             status=status, notes=notes,
         ))
 
 
-def _gate(metrics: dict) -> tuple[bool, str]:
+def _gate(metrics: dict, asset_class: str = "default") -> tuple[bool, str]:
+    gates = _LOCK_GATES.get(asset_class, _LOCK_GATES["default"])
     sharpe = float(metrics.get("sharpe", 0.0) or 0.0)
     mdd = abs(float(metrics.get("max_drawdown", 0.0) or 0.0))
     hit = float(metrics.get("hit_rate", 0.0) or 0.0)
-    if sharpe < _LOCK_GATES["sharpe_min"]:
-        return False, f"sharpe {sharpe:.2f} < {_LOCK_GATES['sharpe_min']}"
-    if mdd > _LOCK_GATES["max_dd_max"]:
-        return False, f"max_dd {mdd:.2f} > {_LOCK_GATES['max_dd_max']}"
-    if hit < _LOCK_GATES["hit_rate_min"]:
-        return False, f"hit_rate {hit:.2f} < {_LOCK_GATES['hit_rate_min']}"
+    psr = float(metrics.get("psr", 0.0) or 0.0)
+    if sharpe < gates["sharpe_min"]:
+        return False, f"sharpe {sharpe:.2f} < {gates['sharpe_min']}"
+    if mdd > gates["max_dd_max"]:
+        return False, f"max_dd {mdd:.2f} > {gates['max_dd_max']}"
+    if hit < gates["hit_rate_min"]:
+        return False, f"hit_rate {hit:.2f} < {gates['hit_rate_min']}"
+    if psr < gates["psr_min"]:
+        return False, (
+            f"psr {psr:.2f} < {gates['psr_min']} "
+            f"(Sharpe not statistically significant for the sample length)"
+        )
     return True, "all gates passed"
 
 
@@ -229,6 +252,7 @@ def run() -> dict:
                 "annualised_return": getattr(outcome, "annualised_return", 0.0),
                 "annualised_volatility": getattr(outcome, "annualised_volatility", 0.0),
                 "n_trades": getattr(outcome, "n_trades", 0),
+                "psr": getattr(outcome, "psr", 0.0),
             }
         except IndexError as e:
             # Qlib's backtest engine walks `calendar[i+1]` per step. If we get
@@ -275,7 +299,7 @@ def run() -> dict:
             overall_rc = 1
             continue
 
-        passed, reason = _gate(metrics)
+        passed, reason = _gate(metrics, _asset_class(base.region))
         _record_version(
             config_name=strat.m1_config,
             config_hash=rolled.config_hash,

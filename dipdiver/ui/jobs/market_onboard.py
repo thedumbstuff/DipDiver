@@ -187,7 +187,7 @@ def _train_stage(
     from dipdiver.brain.baselines.config import load_config
     from dipdiver.brain.baselines.results import save_locked
     from dipdiver.brain.baselines.runner import run_baseline
-    from dipdiver.ui.jobs.m1_retrain import _gate, _record_version
+    from dipdiver.ui.jobs.m1_retrain import _asset_class, _gate, _record_version
 
     cfg_name = config_filename(universe_key, model_kind)
     config = load_config(_config_path(universe_key, model_kind))
@@ -197,8 +197,9 @@ def _train_stage(
         "max_drawdown": getattr(result, "max_drawdown", 0.0),
         "hit_rate": getattr(result, "hit_rate", 0.0),
         "annualised_return": getattr(result, "annualised_return", 0.0),
+        "psr": getattr(result, "psr", 0.0),
     }
-    passed, reason = _gate(metrics)
+    passed, reason = _gate(metrics, _asset_class(config.region))
     _record_version(
         config_name=cfg_name,
         config_hash=result.config_hash,
